@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b2545" />
+  <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;rect width='100' height='100' rx='18' fill='%230b2545'/&gt;&lt;text x='50' y='74' font-size='58' text-anchor='middle'&gt;%F0%9F%8F%BA&lt;/text&gt;&lt;/svg&gt;" />
+  <title>vibe-clay · glaze tools</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>🏺 vibe-clay</h1>
+    <p>Glaze chemistry in your pocket · a companion to Insight-Live</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <input id="recipeName" class="title" value="Untitled Recipe" aria-label="Recipe name" />
+      <div id="lines"></div>
+      <div class="btnbar">
+        <button id="addLine" class="btn small">+ Add material</button>
+        <button id="sampleBtn" class="btn ghost small">Load sample</button>
+        <button id="clearBtn" class="btn ghost small">Clear</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Analysis</h2>
+      <div id="stats" class="stats"></div>
+      <div id="warn"></div>
+    </section>
+
+    <section class="card">
+      <h2>Unity Formula (UMF)</h2>
+      <table id="umf" class="umf"></table>
+      <p class="note">Fluxes (blue) sum to 1.0. Al₂O₃ / Fe₂O₃ are stabilisers (amber),
+        B₂O₃ boron (purple), SiO₂ &amp; other glass-formers (green). Expansion is a
+        relative additive estimate for comparing glazes, not a dilatometer value.</p>
+    </section>
+
+    <section class="card">
+      <h2>Import / Export</h2>
+      <textarea id="io" placeholder="Recipe + analysis JSON appears here on Export. Paste a recipe JSON and press Import to load it."></textarea>
+      <div class="btnbar">
+        <button id="exportBtn" class="btn small">Export JSON</button>
+        <button id="importBtn" class="btn ghost small">Import JSON</button>
+      </div>
+      <p class="note">This is the bridge to Insight-Live until a live sync path is
+        chosen. Recipes round-trip as JSON now; HTML/paste import is next.</p>
+    </section>
+  </main>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
