@@ -43,21 +43,54 @@ Helps Claude work effectively with Insight-Live (insight-live.com), Digitalfire
    Then a session-cookie login + HTML parse is possible from a server context
    (never from the static browser app — CORS blocks that).
 
-## Recipe data model (target parity with Insight-Live)
+## Insight-Live export format (confirmed from a real export)
+
+Insight-Live's **Export** produces XML. Confirmed shape:
+
+```xml
+<recipes version="1.0" encoding="UTF-8">
+  <recipe name="G2926B" keywords="..." id="269324" key="advC7niu" date="2026-06-29" codenum="G1">
+    <recipelines>
+      <recipeline material="Ferro Frit 3134" amount="25.400" tolerance=""/>
+      <recipeline material="Red Iron Oxide" amount="10.000" added="true"/>
+    </recipelines>
+    <notes>free text</notes>
+  </recipe>
+</recipes>
+```
+
+- `added="true"` on a `<recipeline>` = an **additive** (colorant/opacifier on top
+  of the base). Everything else is the base batch.
+- `amount` scale varies between recipes — some are fractions summing to 1.0,
+  others percentages summing to ~100+. UMF is scale-invariant so chemistry is
+  unaffected; only display-normalisation cares.
+- `key` is the Insight-Live **share key** (same token as `recipes.php?rz=KEY`).
+- Material names are Insight-Live's own ("EP Kaolin", "F3134", "Alberta Slip
+  1000F Roasted", "lithium carbonate") — they do **not** match our canonical DB
+  names directly.
+
+`js/import.js` → `parseInsightLiveXML(xml, db)` parses this into our model and
+resolves material names via `buildResolver()` (aliases + normalised matching).
+`toInsightLiveXML(recipes)` serialises back. Unmatched names are kept verbatim
+and flagged (`recipe.unmatched`), so nothing is silently dropped.
+
+## vibe-clay recipe data model
 
 ```json
 {
-  "name": "string", "code": "string",
-  "lines": [ { "material": "Custer Feldspar (Potash)", "amount": 40, "additive": false } ],
+  "name": "string", "code": "string", "key": "share-token", "date": "YYYY-MM-DD",
+  "keywords": "string", "notes": "string",
+  "lines": [ { "material": "Frit 3134 (Ferro)", "rawMaterial": "Ferro Frit 3134",
+              "matched": true, "amount": 25.4, "additive": false } ],
   "firing": [ { "ramp": 150, "target": 1222, "hold": 15 } ],
-  "notes": "string", "project": "string", "links": ["recipeRef"], "photos": []
+  "unmatched": ["names that didn't resolve"]
 }
 ```
 
-- `amount` is batch grams (base usually sums to 100). `additive:true` marks
-  colorants/opacifiers added on top; they still count toward chemistry.
-- Material **names must match** `data/materials.json`, or chemistry silently
-  skips them (the app surfaces "unknown material" warnings).
+- `material` is the canonical DB name (used for chemistry); `rawMaterial`
+  preserves Insight-Live's name for round-trip export.
+- To add coverage for an unmatched material: add it to `data/materials.json`
+  with `oxides` + `loi`, and list the Insight-Live spelling in `aliases`.
 
 ## Glaze chemistry, quickly
 

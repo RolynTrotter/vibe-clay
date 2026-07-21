@@ -9,7 +9,7 @@ ports its genuinely useful, offline-computable tools to something Alex can use
 from his phone, and lays the groundwork to sync with his real account if/when a
 data path opens up.
 
-![vibe-clay on mobile](docs/screenshot-mobile.png)
+![vibe-clay on mobile](docs/screenshot-library.png)
 
 ## What works today
 
@@ -24,8 +24,11 @@ data path opens up.
   theme, dark-mode aware, works offline once loaded.
 - **Materials database** (`data/materials.json`) — ~30 common ceramic materials
   with nominal Digitalfire-style oxide analyses. Extensible.
-- **Import / Export** — recipes round-trip as JSON. The bridge to Insight-Live
-  until a live sync path is chosen.
+- **Insight-Live import** — export your recipe library from Insight-Live (XML)
+  and open it here: every recipe, with chemistry, on your phone. Material names
+  are resolved via an alias system (`Ferro Frit 3134` → `Frit 3134`, `EP Kaolin`
+  → `Kaolin (EPK)`, …). Parsing is 100% on-device; nothing is uploaded. Verified
+  against a real 11-recipe export. Recipes also round-trip as JSON.
 - **Claude skill** (`skills/insight-live-navigator/`) — so Claude can navigate
   Insight-Live/Digitalfire and this app effectively.
 
@@ -60,8 +63,8 @@ repo root to GitHub Pages. (Enable Pages → "GitHub Actions" in repo settings.)
 
 ## Roadmap
 
-- [ ] Recipe import parser (paste Insight-Live HTML/text → data model)
+- [x] Recipe import (Insight-Live XML export → data model)
 - [ ] Firing-schedule editor + graph
-- [ ] More materials + pull real analyses from Digitalfire
+- [ ] More materials + pull real analyses from Digitalfire (tighten nominal values)
 - [ ] Sync adapter once a data path (official API / proxy) is chosen
 - [ ] Glaze limit/typical-range warnings (crazing, durability)

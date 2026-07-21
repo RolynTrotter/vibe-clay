@@ -16,6 +16,14 @@
 
   <main>
     <section class="card">
+      <h2>Recipe Library</h2>
+      <p class="note" style="margin-top:0">Export your library from Insight-Live (XML) and open it here — every recipe, with chemistry, on your phone. Nothing is uploaded anywhere; parsing happens on your device.</p>
+      <label for="xmlFile" class="btn small" style="display:inline-block">Import Insight-Live XML…</label>
+      <input id="xmlFile" type="file" accept=".xml,text/xml" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden" />
+      <div id="library" class="library"></div>
+    </section>
+
+    <section class="card">
       <input id="recipeName" class="title" value="Untitled Recipe" aria-label="Recipe name" />
       <div id="lines"></div>
       <div class="btnbar">

@@ -74,16 +74,21 @@ XHR/JSON under the hood). With a valid session cookie we could:
   works from a server-side context (our container, or a proxy). See Option's
   "proxy" note below.
 
-### Option C — Manual import/export bridge (works now, zero risk)
+### Option C — Manual import/export bridge (IMPLEMENTED, zero risk)
 
-Until A or B is solid, let Alex move recipes by hand:
+Insight-Live has a built-in **Export** that produces an XML recipe library.
+vibe-clay now imports it directly (`js/import.js`), so Alex can:
 
-- **Import:** paste a recipe (text or the page HTML) into the app; we parse it.
-- **Export:** the app emits a clean recipe format (JSON + human-readable) he can
-  paste back or keep.
+- Export his library from Insight-Live → open the XML in vibe-clay → every
+  recipe, with full chemistry, on his phone. Parsing is 100% on-device; nothing
+  is uploaded.
+- Round-trip back out via `toInsightLiveXML()` (ready for when a write path
+  exists).
 
-This needs no credentials, no proxy, no ToS questions — and it's genuinely
-useful on day one.
+Confirmed working against a real 11-recipe export — all materials resolved via
+the alias system. This needs no credentials, no proxy, no ToS questions, and is
+the recommended day-one bridge. The XML schema is documented in
+`skills/insight-live-navigator/SKILL.md`.
 
 ## The GitHub-Pages / backend reality
 
@@ -102,24 +107,19 @@ GitHub Pages frontend calls it. Nothing else about the "hosted on GitHub Pages"
 goal changes. This is the recommended bridge **if** live sync becomes a
 requirement before the official API opens.
 
-## Proposed data model (target: 1:1 with Insight-Live recipes)
+## Data model (confirmed against a real export)
 
-A recipe in Insight-Live carries roughly:
+The Insight-Live export XML gives us the exact shape (see
+`skills/insight-live-navigator/SKILL.md` for the XML). Each `<recipe>` carries
+`name`, `id`, `key` (the share token), `codenum`, `keywords`, `date`, `notes`,
+and `<recipeline material amount [added] [tolerance]>` rows. Our internal model
+mirrors it 1:1 and additionally records `rawMaterial`/`matched` per line so a
+future write-back preserves Insight-Live's own names. See `js/import.js` and
+`js/chemistry.js`.
 
-| Field | Notes |
-|---|---|
-| `name`, `code` | recipe title + short code |
-| `materials[]` | `{ name, amount, isAdditive }` — batch (usually to 100) + colorants/additives on top |
-| `notes` | free text / development history |
-| `firing` | firing schedule (segments: ramp °/hr, target, hold) |
-| `photos[]` | image references |
-| `project` | grouping |
-| `links[]` | interlinked recipes |
-| `analysis` | derived: UMF, %analysis, mole%, expansion, cost |
-
-Our internal JSON (`data/` + app state) mirrors this so that when a real sync
-path opens, mapping is a thin adapter, not a rewrite. See `js/chemistry.js` for
-the analysis half, which is fully implemented offline.
+Still to confirm from Insight-Live (not present in the recipe-library export):
+firing schedules, photos, and project grouping — likely separate exports or API
+resources.
 
 ## Milestones
 

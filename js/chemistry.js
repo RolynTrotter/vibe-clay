@@ -70,6 +70,31 @@ export function indexMaterials(db) {
 }
 
 /**
+ * Normalise a material name for fuzzy matching: lowercase, drop punctuation and
+ * parentheticals, collapse whitespace. So "Ferro Frit 3134", "F3134" and
+ * "frit 3134" can all be recognised.
+ */
+export function normalizeName(s) {
+  return String(s).toLowerCase().replace(/[()._\-/]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Build a resolver that maps any incoming material name (canonical, alias, or a
+ * near-miss) to the canonical database name, or null if unknown. Used by the
+ * Insight-Live importer so exported recipes line up with our materials.
+ * @param {{materials: Array}} db
+ * @returns {(name: string) => string | null}
+ */
+export function buildResolver(db) {
+  const map = new Map();
+  for (const m of db.materials) {
+    map.set(normalizeName(m.name), m.name);
+    for (const a of m.aliases || []) map.set(normalizeName(a), m.name);
+  }
+  return name => map.get(normalizeName(name)) || null;
+}
+
+/**
  * Core analysis.
  * @param {Array<{material: string, amount: number, additive?: boolean}>} recipe
  *        list of lines; `amount` in grams (batch). `additive:true` marks
