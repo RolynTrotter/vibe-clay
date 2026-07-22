@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "description": "Typical UMF limit ranges for functional glossy glazes, as heuristics for flagging a recipe that's likely to craze, be under-durable, or misbehave. These are GUIDANCE from common ceramics references (e.g. Hesselberth & Roy 'Mastering Cone 6 Glazes' for the cone-6 set), not hard rules — plenty of good glazes sit outside them. Values are UMF (fluxes = 1.0). ratios are molar.",
+    "source": "Compiled from common glaze-chemistry references. Approximate.",
+    "version": "0.1.0"
+  },
+  "targets": {
+    "cone6-glossy": {
+      "label": "Cone 6 (~1222°C) functional glossy",
+      "oxides": {
+        "SiO2": [2.5, 4.0],
+        "Al2O3": [0.25, 0.5],
+        "B2O3": [0.1, 0.4],
+        "CaO": [0.2, 0.7],
+        "MgO": [0.0, 0.35],
+        "KNaO": [0.1, 0.35]
+      },
+      "ratios": { "SiO2_Al2O3": [6, 10] }
+    },
+    "cone10-glossy": {
+      "label": "Cone 10 (~1305°C) functional glossy",
+      "oxides": {
+        "SiO2": [3.0, 5.0],
+        "Al2O3": [0.3, 0.55],
+        "B2O3": [0.0, 0.3],
+        "CaO": [0.3, 0.8],
+        "MgO": [0.0, 0.3],
+        "KNaO": [0.1, 0.4]
+      },
+      "ratios": { "SiO2_Al2O3": [7, 12] }
+    }
+  },
+  "notes": {
+    "SiO2_Al2O3": "Lower ratio (~5-7) tends matte/silky; higher (~8-12) glossier/glassier. Very high with low alumina risks running and low durability.",
+    "Al2O3": "Too low → runny, soft, less durable. High alumina (>~0.5 with lower silica) → alumina matte.",
+    "B2O3": "A melter that also lowers thermal expansion. Useful to fix crazing without adding high-expansion alkalis.",
+    "crazing": "Glaze contracts more than the clay body on cooling → cracks. Lower expansion: cut KNaO (Na2O worst), add SiO2, add B2O3, swap some flux to MgO or Li2O.",
+    "shivering": "Glaze contracts less than body → flakes off edges. Raise expansion: more KNaO, less SiO2/B2O3.",
+    "durability": "Very high alkali (KNaO) with low SiO2/Al2O3 leaches — avoid for food surfaces. Keep silica and alumina toward the upper end for functional ware."
+  }
+}

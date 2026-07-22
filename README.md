@@ -34,15 +34,24 @@ data path opens up.
   are resolved via an alias system (`Ferro Frit 3134` → `Frit 3134`, `EP Kaolin`
   → `Kaolin (EPK)`, …). Parsing is 100% on-device; nothing is uploaded. Verified
   against a real 11-recipe export. Recipes also round-trip as JSON.
-- **Claude skill** (`skills/insight-live-navigator/`) — so Claude can navigate
-  Insight-Live/Digitalfire and this app effectively.
+- **Claude skills** (`skills/`) — so Claude can help effectively:
+  - `insight-live-navigator` — navigating Insight-Live/Digitalfire, the XML
+    schema and data model.
+  - `glaze-qa` — answering glaze-chemistry questions with **computed** numbers
+    and limit-range flags (crazing, durability, reduction vs oxidation).
+  - `draft-recipe` — building/adjusting a recipe and emitting copy-paste
+    Insight-Live XML.
+  - `make-issue` — interviewing a lay user to file a good GitHub issue.
+- **Analyzer CLI** (`tools/analyze.mjs`) — run the chemistry engine from the
+  terminal on an Insight-Live XML export or app JSON, with `--target` limit
+  flagging and `--xml` round-trip export.
 
 ## The three parts of this project
 
-1. **Skills** for Claude — `skills/insight-live-navigator/`.
+1. **Skills** for Claude — `skills/` (navigator, glaze-qa, draft-recipe, make-issue).
 2. **JS frontend** Alex uses from his phone — this repo, deployable to Pages.
-3. **Materials-science calculations** — `js/chemistry.js`, since no backend/API
-   is available (see below).
+3. **Materials-science calculations** — `js/chemistry.js` (+ `tools/analyze.mjs`,
+   `data/glaze-limits.json`), since no backend/API is available (see below).
 
 ## Status of Insight-Live sync
 
@@ -60,6 +69,13 @@ python3 -m http.server 8099
 ```
 
 No build step, no dependencies — plain ES modules.
+
+Analyse a recipe from the terminal:
+
+```bash
+node tools/analyze.mjs path/to/InsightRecipeLibrary.xml --target cone6-glossy
+echo '{"lines":[{"material":"EPK","amount":20},{"material":"Silica","amount":30}]}' | node tools/analyze.mjs
+```
 
 ## Deploy
 
