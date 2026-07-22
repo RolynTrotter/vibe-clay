@@ -107,8 +107,16 @@ Key concepts to get right:
 - **UMF / Seger**: fluxes (Na₂O K₂O Li₂O CaO MgO BaO SrO ZnO PbO) are normalised
   so their moles sum to **1.0**; Al₂O₃, B₂O₃, SiO₂ etc. are expressed relative to
   that. B₂O₃ is shown on its own line (Insight convention), not in the flux total.
+- **Ratios Insight-Live reports** (all in `analysis.ratios` / `analysis.fluxSplit`):
+  `SiO2_Al2O3` (Si:Al), `SiB_Al2O3` (SiB:Al = (SiO₂+B₂O₃):Al₂O₃), `KNaO`
+  (combined K₂O+Na₂O flux value), and `fluxSplit` = R₂O:RO (alkali Na₂O/K₂O/Li₂O
+  vs alkaline-earth CaO/MgO/… , normalised to sum to 1.0, e.g. 0.4:0.6).
 - **SiO₂:Al₂O₃ ratio** is a headline number (roughly ~5–8 glossy, higher = more
   glassy/less matte, depends on flux).
+- **Base vs additions**: Insight-Live shows a base recipe plus "Additions"
+  (colorants/opacifiers on top), with separate batch totals ("110.10+11.30").
+  `analysis.baseGrams` / `analysis.additionGrams` mirror this. Both are included
+  in the unity chemistry (additions are not chemically separate).
 - **LOI**: volatiles (CO₂, chemical water) that leave on firing. Grams of oxide =
   raw grams × (oxide wt% / 100); LOI just contributes no oxide.
 - **Thermal expansion** here is a linear additive ESTIMATE (relative units), for

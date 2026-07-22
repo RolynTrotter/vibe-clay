@@ -66,8 +66,19 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 12px 60px; }
 .row .amt { width: 84px; text-align: right; }
 .row .del {
   border: none; background: transparent; color: var(--danger);
-  font-size: 20px; padding: 4px 8px; cursor: pointer; line-height: 1;
+  font-size: 20px; padding: 4px 6px; cursor: pointer; line-height: 1;
 }
+.row .tog {
+  border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+  font-size: 12px; padding: 6px 7px; cursor: pointer; line-height: 1; border-radius: 8px;
+}
+
+.grp-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--blue-500); font-weight: 700; margin: 4px 0 8px; }
+.grp-label.add { color: var(--warn); margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.grp-label span { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); }
+@media (prefers-color-scheme: dark) { .grp-label { color: var(--blue-300); } }
+.grp-empty { font-size: 13px; color: var(--muted); padding: 2px 2px 8px; }
+.addbtn { margin-bottom: 4px; }
 
 button.btn {
   font-size: 15px; font-weight: 600; padding: 11px 14px; border: none;
@@ -87,6 +98,12 @@ tr.g-flux td:first-child { color: var(--blue-500); font-weight: 600; }
 tr.g-stabiliser td:first-child { color: var(--warn); font-weight: 600; }
 tr.g-boron td:first-child { color: #8a5cc0; font-weight: 600; }
 tr.g-glass td:first-child { color: var(--ok); font-weight: 600; }
+/* Structural-trio highlight on the UMF value, matching Insight-Live */
+td.hi-si { background: #cfe3fb; color: #0b2545; font-weight: 700; border-radius: 5px; }
+td.hi-al { background: #f7c9c2; color: #4a0f06; font-weight: 700; border-radius: 5px; }
+td.hi-b  { background: #f7ec9c; color: #4a3d06; font-weight: 700; border-radius: 5px; }
+tr.knao td { color: var(--muted); font-style: italic; border-bottom: 1px solid var(--line); }
+tr.knao td:first-child { font-weight: 600; }
 
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .stat { background: var(--blue-100); border-radius: 10px; padding: 10px 12px; }

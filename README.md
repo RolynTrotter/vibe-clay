@@ -14,12 +14,17 @@ data path opens up.
 ## What works today
 
 - **Glaze chemistry engine** (`js/chemistry.js`) — from a recipe (materials +
-  batch grams) it computes:
+  batch grams) it computes, matching what Insight-Live shows:
   - **UMF / Seger** unity formula (fluxes normalised to 1.0)
-  - oxide **weight-%** and **mole-%**
-  - **SiO₂:Al₂O₃** ratio
+  - oxide **weight-%** and **mole-%**, with SiO₂/Al₂O₃/B₂O₃ highlighted
+  - ratios: **SiO₂:Al₂O₃**, **SiB:Al** ((SiO₂+B₂O₃):Al₂O₃), **R₂O:RO**
+    (alkali:alkaline-earth), and the combined **KNaO** line
   - a relative **thermal-expansion** estimate (for comparing glazes)
   - **LOI** and **batch cost**
+  - **base recipe vs additions** (colorants on top), with separate totals —
+    the way potters actually mix from materials on hand
+  - Validated against real Insight-Live output: G2926B Spodumene matches its
+    UMF, KNaO (0.27), and R₂O:RO (0.4:0.6) essentially exactly.
 - **Mobile-first UI** (`index.html`) — recipe builder + live analysis, blue
   theme, dark-mode aware, works offline once loaded.
 - **Materials database** (`data/materials.json`) — ~30 common ceramic materials
