@@ -49,7 +49,7 @@ export const OXIDE_GROUP = {
 // reading. Oxides not listed contribute ~0.
 export const EXPANSION_FACTOR = {
   SiO2: 3.8, Al2O3: 6.3, B2O3: 0.0,
-  Na2O: 39.5, K2O: 46.5, Li2O: 27.0,
+  Na2O: 39.5, K2O: 46.5, Li2O: 6.7,
   CaO: 16.3, MgO: 4.5, BaO: 20.0, SrO: 15.0, ZnO: 7.0, PbO: 10.6,
   Fe2O3: 13.3, TiO2: 8.5, ZrO2: 4.5, SnO2: 6.0, P2O5: 8.0,
 };
@@ -108,7 +108,9 @@ export function buildResolver(db) {
 export function analyzeRecipe(recipe, materialIndex, opts = {}) {
   const oxideGrams = {};     // fired grams of each oxide across the batch
   const unknownMaterials = [];
-  let batchGrams = 0;        // total raw grams batched
+  let batchGrams = 0;        // total raw grams batched (base + additions)
+  let baseGrams = 0;         // base recipe only
+  let additionGrams = 0;     // additions ("added on top") only
   let cost = 0;
   let haveAnyPrice = false;
 
@@ -116,6 +118,7 @@ export function analyzeRecipe(recipe, materialIndex, opts = {}) {
     const amount = Number(line.amount) || 0;
     if (amount <= 0) continue;
     batchGrams += amount;
+    if (line.additive) additionGrams += amount; else baseGrams += amount;
 
     const mat = materialIndex.get(line.material);
     if (!mat) { unknownMaterials.push(line.material); continue; }
@@ -165,18 +168,37 @@ export function analyzeRecipe(recipe, materialIndex, opts = {}) {
     };
   }
 
-  // Headline ratios.
+  // Headline ratios (matching what Insight-Live reports).
   const siMol = oxideMoles.SiO2 || 0;
   const alMol = oxideMoles.Al2O3 || 0;
+  const bMol = oxideMoles.B2O3 || 0;
   const siAlRatio = alMol ? round(siMol / alMol, 2) : null;
+  const siBAlRatio = alMol ? round((siMol + bMol) / alMol, 2) : null;
+
+  // R2O:RO — split the flux unity into alkali (R2O: Na2O K2O Li2O) vs alkaline
+  // earth (RO: CaO MgO BaO SrO ZnO PbO), normalised to sum to 1.0.
+  const R2O_SET = new Set(['Na2O', 'K2O', 'Li2O']);
+  let r2oMol = 0, roMol = 0;
+  for (const [ox, mol] of Object.entries(oxideMoles)) {
+    if (OXIDE_GROUP[ox] !== 'flux') continue;
+    if (R2O_SET.has(ox)) r2oMol += mol; else roMol += mol;
+  }
+  const fluxSplit = fluxMoles
+    ? { R2O: round(r2oMol / fluxMoles, 2), RO: round(roMol / fluxMoles, 2) }
+    : null;
+  // KNaO — combined K2O+Na2O flux value (Insight shows this grouped line).
+  const kNaO = fluxMoles ? round(((oxideMoles.K2O || 0) + (oxideMoles.Na2O || 0)) / fluxMoles, 2) : null;
 
   return {
     batchGrams: round(batchGrams, 2),
+    baseGrams: round(baseGrams, 2),
+    additionGrams: round(additionGrams, 2),
     firedGrams: round(totalFiredGrams, 2),
     loiPct: batchGrams ? round(((batchGrams - totalFiredGrams) / batchGrams) * 100, 2) : 0,
     fluxUnityMoles: round(fluxMoles, 5),
     oxides,
-    ratios: { SiO2_Al2O3: siAlRatio },
+    ratios: { SiO2_Al2O3: siAlRatio, SiB_Al2O3: siBAlRatio, KNaO: kNaO },
+    fluxSplit,
     thermalExpansion: estimateExpansion(oxideMoles),
     cost: haveAnyPrice ? {
       total: round(cost, 2),
