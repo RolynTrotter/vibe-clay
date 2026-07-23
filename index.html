@@ -47,6 +47,26 @@
     </section>
 
     <section class="card">
+      <h2>Line Blend</h2>
+      <p class="note" style="margin-top:0">Blend two glazes across a line and see the UMF &amp; analysis at every point — the classic way to explore the space between a glossy and a matte, or a base and a variant. Pick Glaze A, Glaze B, and how many points.</p>
+      <div class="blend-controls">
+        <label class="blend-field">Glaze&nbsp;A
+          <select id="blendA" aria-label="Glaze A"></select>
+        </label>
+        <label class="blend-field">Glaze&nbsp;B
+          <select id="blendB" aria-label="Glaze B"></select>
+        </label>
+        <label class="blend-field pts">Points
+          <input id="blendN" type="number" inputmode="numeric" min="2" max="21" step="1" value="5" aria-label="Number of points" />
+        </label>
+      </div>
+      <div class="btnbar">
+        <button id="blendBtn" class="btn small">Blend</button>
+      </div>
+      <div id="blendResult" class="blend-result"></div>
+    </section>
+
+    <section class="card">
       <h2>Import / Export</h2>
       <textarea id="io" placeholder="Recipe + analysis JSON appears here on Export. Paste a recipe JSON and press Import to load it."></textarea>
       <div class="btnbar">

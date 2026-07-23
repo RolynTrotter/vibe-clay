@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { analyzeRecipe, indexMaterials, buildResolver, displayOrder } from '../js/chemistry.js';
+import { analyzeRecipe, lineBlend, indexMaterials, buildResolver, displayOrder } from '../js/chemistry.js';
 import { toInsightLiveXML } from '../js/import.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -26,13 +26,16 @@ const resolveMat = buildResolver(db);
 
 // --- args ---
 const args = process.argv.slice(2);
-let target = null, file = null, emitXml = false;
+let target = null, files = [], emitXml = false, blend = null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--target') target = args[++i];
   else if (args[i] === '--xml') emitXml = true;
-  else if (!args[i].startsWith('--')) file = args[i];
+  else if (args[i] === '--blend') blend = parseInt(args[++i], 10) || 5;
+  else if (!args[i].startsWith('--')) files.push(args[i]);
 }
-const raw = file ? readFileSync(file, 'utf8') : readFileSync(0, 'utf8');
+// Blend needs two recipes; accept them as two files, one file with two recipes,
+// or stdin. Everything else reads a single source (file or stdin).
+const raw = files.length ? files.map(f => readFileSync(f, 'utf8')) : [readFileSync(0, 'utf8')];
 
 // --- lightweight Insight-Live XML parse (node has no DOMParser) ---
 function parseXML(xml) {
@@ -82,13 +85,62 @@ function fromJSON(data) {
   }));
 }
 
-const trimmed = raw.trim();
-const recipes = trimmed.startsWith('<') ? parseXML(trimmed) : fromJSON(JSON.parse(trimmed));
+function parseSource(text) {
+  const trimmed = text.trim();
+  return trimmed.startsWith('<') ? parseXML(trimmed) : fromJSON(JSON.parse(trimmed));
+}
+const recipes = raw.flatMap(parseSource);
+
+const pad = (s, n) => String(s).padEnd(n);
 
 // --xml: emit Insight-Live-importable XML for the recipe(s) and exit. Round-trips
 // JSON -> XML so a drafted recipe can be pasted straight into Insight-Live.
 if (emitXml) {
   process.stdout.write(toInsightLiveXML(recipes));
+  process.exit(0);
+}
+
+// --blend N: line-blend the first two recipes into N points and print a matrix
+// of the UMF + key ratios along the line. Needs two recipes (two files, or one
+// source containing two).
+if (blend != null) {
+  if (recipes.length < 2) {
+    console.error('--blend needs two recipes (pass two files, or one source with two recipes).');
+    process.exit(1);
+  }
+  const [A, B] = recipes;
+  const points = lineBlend(A.lines, B.lines, blend, idx);
+  console.log(`\n=== Line blend: ${A.name} → ${B.name}  (${points.length} points) ===`);
+  // Column headers: A:B mix for each point.
+  const colw = 10;
+  const cell = s => String(s).padStart(colw);
+  console.log(pad('', 8) + points.map(p => cell(p.label)).join(''));
+  // One row per oxide (union across all points), in reading order.
+  const oxKeys = new Set();
+  for (const p of points) for (const ox of Object.keys(p.analysis.oxides)) oxKeys.add(ox);
+  console.log('UMF:');
+  for (const ox of displayOrder([...oxKeys])) {
+    const row = points.map(p => cell((p.analysis.oxides[ox]?.umf ?? 0).toFixed(3)));
+    console.log(pad('  ' + ox, 8) + row.join(''));
+  }
+  // Key ratios / metrics along the line.
+  const metric = (label, fn) => console.log(pad(label, 8) + points.map(p => cell(fn(p.analysis))).join(''));
+  console.log('Ratios:');
+  metric('  Si:Al', a => a.ratios.SiO2_Al2O3 ?? '—');
+  metric('  SiB:Al', a => a.ratios.SiB_Al2O3 ?? '—');
+  metric('  R2O:RO', a => a.fluxSplit ? `${a.fluxSplit.R2O}:${a.fluxSplit.RO}` : '—');
+  metric('  KNaO', a => a.ratios.KNaO ?? '—');
+  metric('  Expan', a => a.thermalExpansion ?? '—');
+  metric('  LOI%', a => a.loiPct);
+  const anyUnmatched = [...new Set(points.flatMap(p => p.analysis.unknownMaterials))];
+  if (anyUnmatched.length) console.log(`\n⚠ unmatched materials: ${anyUnmatched.join(', ')}`);
+  if (target) {
+    console.log(`\nvs ${limits.targets[target]?.label || target}:`);
+    for (const p of points) {
+      const f = flags(p.analysis, target);
+      console.log(`  ${pad(p.label, 8)} ${f.length ? '⚠ ' + f.join('; ') : '✓ within typical ranges'}`);
+    }
+  }
   process.exit(0);
 }
 
@@ -111,7 +163,6 @@ function flags(a, targetKey) {
 }
 
 // --- report ---
-const pad = (s, n) => String(s).padEnd(n);
 for (const r of recipes) {
   const a = analyzeRecipe(r.lines, idx);
   console.log(`\n=== ${r.name}${r.code ? ' [' + r.code + ']' : ''} ===`);

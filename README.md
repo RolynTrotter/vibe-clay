@@ -25,6 +25,14 @@ data path opens up.
     the way potters actually mix from materials on hand
   - Validated against real Insight-Live output: G2926B Spodumene matches its
     UMF, KNaO (0.27), and R₂O:RO (0.4:0.6) essentially exactly.
+- **Line blend** (`js/chemistry.js` `lineBlend()`) — blend two glazes into `n`
+  evenly spaced points from 100% A → 100% B and get the full UMF + analysis at
+  every point. Each recipe is normalised to a common base first, so the blend
+  mixes equal *proportions* of glaze (the way a potter mixes from two buckets),
+  and materials in only one recipe scale from/to zero across the line. In the app
+  it's a scrollable matrix (oxide UMF + Si:Al, R₂O:RO, expansion, LOI per point)
+  with a **Load** button that drops any point into the recipe builder; on the CLI
+  it's `--blend N`.
 - **Mobile-first UI** (`index.html`) — recipe builder + live analysis, blue
   theme, dark-mode aware, works offline once loaded.
 - **Materials database** (`data/materials.json`) — ~30 common ceramic materials
@@ -77,6 +85,13 @@ node tools/analyze.mjs path/to/InsightRecipeLibrary.xml --target cone6-glossy
 echo '{"lines":[{"material":"EPK","amount":20},{"material":"Silica","amount":30}]}' | node tools/analyze.mjs
 ```
 
+Line-blend two glazes into `N` points, each with its UMF + analysis:
+
+```bash
+node tools/analyze.mjs glossy.json matte.json --blend 5
+node tools/analyze.mjs library.xml --blend 5   # blends the first two recipes
+```
+
 ## Deploy
 
 Pushed to `main`, the workflow in `.github/workflows/pages.yml` publishes the
@@ -85,6 +100,7 @@ repo root to GitHub Pages. (Enable Pages → "GitHub Actions" in repo settings.)
 ## Roadmap
 
 - [x] Recipe import (Insight-Live XML export → data model)
+- [x] Line-blend tool (two glazes → N points, UMF + analysis each)
 - [ ] Firing-schedule editor + graph
 - [ ] More materials + pull real analyses from Digitalfire (tighten nominal values)
 - [ ] Sync adapter once a data path (official API / proxy) is chosen
