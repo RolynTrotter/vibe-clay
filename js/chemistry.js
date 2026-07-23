@@ -209,6 +209,94 @@ export function analyzeRecipe(recipe, materialIndex, opts = {}) {
 }
 
 /**
+ * Normalise a recipe so its base (non-additive) materials sum to `targetBase`
+ * grams, scaling additives by the same factor so their ratio to the base is
+ * preserved. This makes two recipes directly comparable for blending — a line
+ * blend mixes equal *proportions* of each glaze, not equal raw grams. If a
+ * recipe has no base materials (all additive), it's left unscaled.
+ * @param {Array<{material: string, amount: number, additive?: boolean}>} recipe
+ * @param {number} [targetBase=100]
+ */
+export function normalizeToBase(recipe, targetBase = 100) {
+  let base = 0;
+  for (const l of recipe) {
+    const a = Number(l.amount) || 0;
+    if (a > 0 && !l.additive) base += a;
+  }
+  const scale = base > 0 ? targetBase / base : 1;
+  return recipe
+    .map(l => ({ material: l.material, additive: !!l.additive, amount: (Number(l.amount) || 0) * scale }))
+    .filter(l => l.amount > 0);
+}
+
+/**
+ * Blend two normalised recipes at proportions fA / fB into a single recipe.
+ * Materials are unioned by (name, additive-flag); a material present in only one
+ * recipe scales from/to zero across the line. Recipe A's material order leads,
+ * then B-only materials.
+ */
+function blendLines(A, B, fA, fB) {
+  const map = new Map(); // "name\0additive" -> { material, additive, amount }
+  const accumulate = (lines, f) => {
+    for (const l of lines) {
+      const key = l.material + ' ' + (l.additive ? '1' : '0');
+      const cur = map.get(key) || { material: l.material, additive: l.additive, amount: 0 };
+      cur.amount += f * l.amount;
+      map.set(key, cur);
+    }
+  };
+  accumulate(A, fA);
+  accumulate(B, fB);
+  return [...map.values()]
+    .map(l => ({ material: l.material, additive: l.additive, amount: round(l.amount, 3) }))
+    .filter(l => l.amount > 0);
+}
+
+/**
+ * Line-blend two glazes into `n` evenly spaced points from 100% A → 100% B and
+ * (optionally) analyse each. Each recipe is first normalised to a common base so
+ * the blend mixes equal proportions of glaze, the way a potter mixes a line blend
+ * from two buckets.
+ *
+ * @param {Array<{material: string, amount: number, additive?: boolean}>} recipeA
+ * @param {Array<{material: string, amount: number, additive?: boolean}>} recipeB
+ * @param {number} [n=5]  number of points along the line (min 2).
+ * @param {Map} [materialIndex]  from indexMaterials(); if given, each point gets
+ *        an `.analysis` from analyzeRecipe().
+ * @param {object} [opts]  passed through to analyzeRecipe (e.g. { prices }).
+ * @returns {Array<{index:number, pctA:number, pctB:number, label:string,
+ *                  lines:Array, analysis?:object}>}
+ */
+export function lineBlend(recipeA, recipeB, n = 5, materialIndex = null, opts = {}) {
+  const steps = Math.max(2, Math.floor(n) || 2);
+  const A = normalizeToBase(recipeA);
+  const B = normalizeToBase(recipeB);
+  const points = [];
+  for (let i = 0; i < steps; i++) {
+    const fB = i / (steps - 1);
+    const fA = 1 - fB;
+    const pctA = round(fA * 100, 1);
+    const pctB = round(fB * 100, 1);
+    const lines = blendLines(A, B, fA, fB);
+    const point = {
+      index: i,
+      fracA: round(fA, 4),
+      fracB: round(fB, 4),
+      pctA,
+      pctB,
+      // A:B mix label, e.g. "75:25" — whole numbers when they're whole.
+      label: `${fmtPct(pctA)}:${fmtPct(pctB)}`,
+      lines,
+    };
+    if (materialIndex) point.analysis = analyzeRecipe(lines, materialIndex, opts);
+    points.push(point);
+  }
+  return points;
+}
+
+const fmtPct = n => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+/**
  * Linear-additivity thermal expansion estimate.
  * Sum over oxides of (mole fraction × factor). Relative units (×10^-7/°C-ish).
  * Compare two glazes; don't read as an absolute dilatometer value.
