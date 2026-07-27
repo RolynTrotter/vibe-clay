@@ -5,6 +5,21 @@ packaged skill all ship under one number (`package.json` is the source of
 truth). Format loosely follows [Keep a Changelog](https://keepachangelog.com);
 versioning is [semver](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- **Release workflow** (`.github/workflows/skill.yml`) — pushing a `v*` tag
+  builds the skill zip and attaches it to a GitHub Release, so the file you
+  upload is a download rather than a build step. The same workflow builds and
+  tests on every push and PR (Node 20, to catch anything that only works on
+  22+), keeps the zip as an artifact, and fails a tag that doesn't match
+  `package.json`.
+- `npm run test:skill` — unzips the built artifact somewhere else and runs it
+  from there: zip shape (one top-level folder, exactly one `SKILL.md`),
+  the frontmatter rules the uploader enforces, and the engine's output for a
+  known recipe.
+
 ## [1.0.0] — 2026-07-27
 
 First versioned release, and the first one packaged as a distributable skill.

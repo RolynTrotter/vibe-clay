@@ -12,6 +12,7 @@
     "serve": "python3 -m http.server 8099",
     "analyze": "node tools/analyze.mjs",
     "build:skill": "node tools/build-skill.mjs",
+    "test:skill": "node tools/test-skill.mjs",
     "check:version": "node tools/build-skill.mjs --check"
   },
   "files": [
