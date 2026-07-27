@@ -1,0 +1,23 @@
+{
+  "name": "vibe-clay",
+  "version": "1.0.0",
+  "description": "Phone-friendly glaze tools for a hobbyist potter — offline UMF/Seger chemistry, line blends, and Insight-Live import/export.",
+  "type": "module",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RolynTrotter/vibe-clay.git"
+  },
+  "scripts": {
+    "serve": "python3 -m http.server 8099",
+    "analyze": "node tools/analyze.mjs",
+    "build:skill": "node tools/build-skill.mjs",
+    "check:version": "node tools/build-skill.mjs --check"
+  },
+  "files": [
+    "js/",
+    "data/",
+    "tools/",
+    "skills/"
+  ]
+}

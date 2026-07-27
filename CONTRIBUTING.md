@@ -38,6 +38,45 @@ change them:
 - Material analyses are nominal and approximate. When you tighten one toward a
   supplier's or Digitalfire's real analysis, say so in the commit.
 
+## Skills and the packaged zip
+
+`skills/` holds the Claude skills. Four are for working in this repo;
+`skills/vibe-clay/` is the one that gets packaged and uploaded so a **regular
+Claude chat** can do glaze chemistry.
+
+```bash
+npm run build:skill      # → dist/vibe-clay-<version>.zip  (dist/ is gitignored)
+```
+
+The build copies the engine, the data, the CLI, and `glaze-qa`,
+`draft-recipe`, and `insight-live-navigator` (as `references/*.md`, frontmatter
+stripped, cross-links rewritten) into one folder. So:
+
+- Improving those three skills improves the packaged skill for free — no copy to
+  keep in sync.
+- Changing what the CLI is called, or which files it reads, means updating the
+  `FILES` list in `tools/build-skill.mjs`.
+- After changing any of it, rebuild and actually run the result from outside the
+  repo — `unzip` somewhere else and run
+  `node <there>/vibe-clay/tools/analyze.mjs` — so a missing file shows up here
+  and not in someone's chat.
+
+## Releasing / version bumps
+
+One version covers the app, the engine, and the skill. `package.json` is the
+source of truth; three files carry a copy:
+
+| File | Where |
+|---|---|
+| `package.json` | `version` |
+| `skills/vibe-clay/SKILL.md` | `metadata.version` |
+| `index.html` | the footer's `<span id="version">` |
+| `CHANGELOG.md` | the top `## [x.y.z]` heading |
+
+`npm run check:version` fails on drift, and `build:skill` checks before it
+packages. Semver: a chemistry result changing for the same input is a **major**
+bump — someone's recipe notes depend on those numbers.
+
 ## Adding a material
 
 Add an entry to `data/materials.json` with `oxides` (weight-%), `loi`, and

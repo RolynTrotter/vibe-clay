@@ -3,3 +3,4 @@ node_modules/
 _test.mjs
 _pw.mjs
 *.log
+dist/
