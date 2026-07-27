@@ -1,6 +1,6 @@
 # vibe-clay 🏺
 
-Phone-friendly glaze tools for a hobbyist potter — a companion to
+**v1.0.0** · Phone-friendly glaze tools for a hobbyist potter — a companion to
 [Insight-Live](https://insight-live.com), hosted on GitHub Pages, no backend
 required.
 
@@ -50,6 +50,8 @@ data path opens up.
   - `draft-recipe` — building/adjusting a recipe and emitting copy-paste
     Insight-Live XML.
   - `make-issue` — interviewing a lay user to file a good GitHub issue.
+  - `vibe-clay` — the packaged version of the three glaze skills, bundled with
+    the engine so it works in a **regular Claude chat** (see below).
 - **Analyzer CLI** (`tools/analyze.mjs`) — run the chemistry engine from the
   terminal on an Insight-Live XML export or app JSON, with `--target` limit
   flagging and `--xml` round-trip export.
@@ -91,6 +93,46 @@ Line-blend two glazes into `N` points, each with its UMF + analysis:
 node tools/analyze.mjs glossy.json matte.json --blend 5
 node tools/analyze.mjs library.xml --blend 5   # blends the first two recipes
 ```
+
+## Use it in a regular Claude chat
+
+The glaze skills plus the chemistry engine package into a single skill zip, so
+Claude can compute real UMF numbers in an ordinary chat — no repo, no terminal.
+
+```bash
+npm run build:skill      # → dist/vibe-clay-1.0.0.zip
+```
+
+Upload that zip wherever custom skills are added (Settings → Capabilities /
+Skills), then just ask a glaze question: "here's my cone 6 clear, why is it
+crazing?" The skill loads itself when the conversation is about glazes.
+
+What's in the zip:
+
+```
+vibe-clay/
+├── SKILL.md              entry point: how to run the engine, what it returns
+├── tools/analyze.mjs     the CLI
+├── js/, data/            engine + materials & limit ranges
+└── references/           glaze-qa · draft-recipe · insight-live-navigator
+```
+
+The bundle keeps the repo's layout, so every command in `SKILL.md` is the same
+command that works in a clone — nothing is rewritten at build time except the
+reference cross-links. It needs Node 18+ in the chat's code sandbox and no
+network. `make-issue` is deliberately left out: it needs GitHub tooling, so it
+stays a repo-only skill for Claude Code.
+
+## Versioning
+
+One version number covers the app, the engine, and the skill.
+`package.json` is the source of truth; `skills/vibe-clay/SKILL.md`
+(`metadata.version`), the app footer in `index.html`, and `CHANGELOG.md` carry a
+copy. `npm run check:version` fails if they drift, and `build:skill` runs the
+same check before packaging.
+
+To cut a release: bump those four, note the changes in `CHANGELOG.md`, and
+rebuild the zip.
 
 ## Deploy
 
