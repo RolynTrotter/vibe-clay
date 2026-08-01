@@ -174,3 +174,51 @@ textarea {
   border: 1px solid var(--line); border-radius: 10px; padding: 10px;
   background: var(--bg); color: var(--ink); min-height: 96px;
 }
+
+/* Utility: keep the file input operable by screen readers while hiding it, so
+   the styled <label> is the only thing on screen. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+button.btn:disabled { opacity: 0.6; cursor: default; }
+.okbox {
+  background: #e4f5ec; color: var(--ok); border-radius: 10px;
+  padding: 8px 10px; font-size: 13px; margin-top: 8px;
+}
+@media (prefers-color-scheme: dark) { .okbox { background: #123424; } }
+.warnbox strong, .okbox strong { font-weight: 700; }
+.warnbox em, .okbox em { font-style: normal; opacity: 0.85; }
+
+/* Firing-target limit check */
+.target-field {
+  display: flex; align-items: center; gap: 8px; margin-top: 14px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); font-weight: 700;
+}
+.target-field select {
+  flex: 1 1 auto; min-width: 0; font-size: 16px; padding: 9px 10px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--ink); font-weight: 400; letter-spacing: 0;
+  text-transform: none;
+}
+.limits { margin-top: 10px; }
+table.limits-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.limits-table th, table.limits-table td {
+  padding: 7px 6px; text-align: right; border-bottom: 1px solid var(--line);
+}
+table.limits-table th:first-child, table.limits-table td:first-child { text-align: left; }
+table.limits-table th {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
+}
+.lim-range { color: var(--muted); font-size: 12.5px; }
+.lim-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+tr.lim-ok .lim-val { color: var(--ok); }
+tr.lim-low .lim-val, tr.lim-high .lim-val { color: var(--warn); }
+tr.lim-low td:first-child, tr.lim-high td:first-child { font-weight: 600; }
+tr.lim-unknown .lim-val { color: var(--muted); }
+.lim-summary-ok { color: var(--ok); font-weight: 600; }
+.lim-summary-out { color: var(--warn); font-weight: 600; }
+
+textarea.paste { min-height: 132px; }

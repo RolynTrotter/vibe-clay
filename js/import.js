@@ -19,57 +19,107 @@
 import { buildResolver } from './chemistry.js';
 
 /**
+ * Parse an Insight-Live export. Works in the browser (via DOMParser) and in Node
+ * (via a regex reader) so the app and the CLI agree on exactly one definition of
+ * the format.
+ *
  * @param {string} xmlString  raw Insight-Live export XML
  * @param {object} db         parsed materials.json (for name resolution)
- * @param {typeof DOMParser} [ParserImpl]  injectable for non-browser tests
+ * @param {typeof DOMParser} [ParserImpl]  force a specific DOM parser
  * @returns {Array} recipes
  */
 export function parseInsightLiveXML(xmlString, db, ParserImpl) {
   const Parser = ParserImpl || (typeof DOMParser !== 'undefined' ? DOMParser : null);
-  if (!Parser) throw new Error('No XML parser available in this environment');
+  const resolve = buildResolver(db);
+  const raw = Parser ? readWithDOM(xmlString, Parser) : readWithRegex(xmlString);
+  return raw.map(r => toRecipe(r, resolve));
+}
 
+// Shared shape between the two readers: { attrs, lines: [attrs], notes }.
+function toRecipe({ attrs, lines: lineAttrs, notes }, resolve) {
+  const lines = lineAttrs.map(a => {
+    const raw = a.material || '';
+    const canonical = resolve(raw);
+    return {
+      material: canonical || raw,        // canonical name if matched, else raw
+      rawMaterial: raw,                  // what Insight-Live called it
+      matched: canonical != null,
+      amount: parseFloat(a.amount) || 0,
+      additive: a.added === 'true',
+      tolerance: a.tolerance || '',
+    };
+  });
+
+  const unmatched = [...new Set(lines.filter(l => !l.matched && l.amount > 0).map(l => l.rawMaterial))];
+
+  return {
+    name: attrs.name || 'Untitled',
+    id: attrs.id || '',
+    key: attrs.key || '',            // Insight-Live share key
+    code: attrs.codenum || '',
+    keywords: attrs.keywords || '',
+    date: attrs.date || '',
+    notes: (notes || '').trim(),
+    lines,
+    unmatched,
+  };
+}
+
+function readWithDOM(xmlString, Parser) {
   const doc = new Parser().parseFromString(xmlString, 'application/xml');
   const parseErr = doc.getElementsByTagName('parsererror')[0];
   if (parseErr) throw new Error('Could not parse XML: ' + (parseErr.textContent || '').trim().slice(0, 120));
 
-  const resolve = buildResolver(db);
-  const recipeEls = [...doc.getElementsByTagName('recipe')];
-
-  return recipeEls.map(r => {
-    const lineEls = [...r.getElementsByTagName('recipeline')];
-    const lines = lineEls.map(l => {
-      const raw = l.getAttribute('material') || '';
-      const canonical = resolve(raw);
-      return {
-        material: canonical || raw,        // canonical name if matched, else raw
-        rawMaterial: raw,                  // what Insight-Live called it
-        matched: canonical != null,
-        amount: parseFloat(l.getAttribute('amount')) || 0,
-        additive: l.getAttribute('added') === 'true',
-        tolerance: l.getAttribute('tolerance') || '',
-      };
-    });
-
-    const unmatched = [...new Set(lines.filter(l => !l.matched && l.amount > 0).map(l => l.rawMaterial))];
-
-    return {
-      name: r.getAttribute('name') || 'Untitled',
-      id: r.getAttribute('id') || '',
-      key: r.getAttribute('key') || '',        // Insight-Live share key
-      code: r.getAttribute('codenum') || '',
-      keywords: r.getAttribute('keywords') || '',
-      date: r.getAttribute('date') || '',
-      notes: (textOf(r, 'notes') || '').trim(),
-      lines,
-      unmatched,
-    };
-  });
+  return [...doc.getElementsByTagName('recipe')].map(r => ({
+    attrs: attrsOf(r, ['name', 'id', 'key', 'codenum', 'keywords', 'date']),
+    lines: [...r.getElementsByTagName('recipeline')]
+      .map(l => attrsOf(l, ['material', 'amount', 'added', 'tolerance'])),
+    notes: textOf(r, 'notes'),
+  }));
 }
+
+const attrsOf = (el, names) =>
+  Object.fromEntries(names.map(n => [n, el.getAttribute(n) || '']));
 
 function textOf(parent, tag) {
   const el = parent.getElementsByTagName(tag)[0];
   return el ? el.textContent : '';
 }
+
+// Node has no DOMParser. The export format is flat and machine-generated, so a
+// reader over it is honest here — it is NOT a general-purpose XML parser and
+// shouldn't be used as one.
+function readWithRegex(xmlString) {
+  const out = [];
+  const recipeRe = /<recipe\b([^>]*)>([\s\S]*?)<\/recipe>/g;
+  let m;
+  while ((m = recipeRe.exec(xmlString))) {
+    const body = m[2];
+    const lines = [];
+    const lineRe = /<recipeline\b([^>]*?)\/?>/g;
+    let lm;
+    while ((lm = lineRe.exec(body))) lines.push(attrMap(lm[1]));
+    const notes = /<notes\b[^>]*>([\s\S]*?)<\/notes>/.exec(body);
+    out.push({ attrs: attrMap(m[1]), lines, notes: notes ? unescapeXml(notes[1]) : '' });
+  }
+  if (!out.length && !/<recipes\b/.test(xmlString)) {
+    throw new Error('Could not parse XML: no <recipe> elements found');
+  }
+  return out;
+}
+
+function attrMap(s) {
+  const o = {};
+  const re = /([\w:-]+)\s*=\s*"([^"]*)"/g;
+  let a;
+  while ((a = re.exec(s))) o[a[1]] = unescapeXml(a[2]);
+  return o;
+}
+
+const unescapeXml = s => String(s)
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/&amp;/g, '&');
 
 /**
  * Serialise a vibe-clay recipe back to Insight-Live export XML (single recipe or

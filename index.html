@@ -6,6 +6,10 @@
   <meta name="theme-color" content="#0b2545" />
   <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;rect width='100' height='100' rx='18' fill='%230b2545'/&gt;&lt;text x='50' y='74' font-size='58' text-anchor='middle'&gt;%F0%9F%8F%BA&lt;/text&gt;&lt;/svg&gt;" />
   <title>vibe-clay · glaze tools</title>
+  <meta name="description" content="Offline glaze chemistry — UMF/Seger unity formula, line blends, and Insight-Live import/export, on your phone." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="stylesheet" href="./css/styles.css" />
 </head>
 <body>
@@ -18,8 +22,12 @@
     <section class="card">
       <h2>Recipe Library</h2>
       <p class="note" style="margin-top:0">Export your library from Insight-Live (XML) and open it here — every recipe, with chemistry, on your phone. Nothing is uploaded anywhere; parsing happens on your device.</p>
-      <label for="xmlFile" class="btn small" style="display:inline-block">Import Insight-Live XML…</label>
-      <input id="xmlFile" type="file" accept=".xml,text/xml" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden" />
+      <div class="btnbar">
+        <label for="xmlFile" class="btn small">Import Insight-Live XML…</label>
+        <input id="xmlFile" type="file" accept=".xml,text/xml" class="visually-hidden" />
+        <button id="libExportBtn" class="btn ghost small" hidden>Download library XML</button>
+        <button id="libClearBtn" class="btn ghost small" hidden>Forget library</button>
+      </div>
       <div id="library" class="library"></div>
     </section>
 
@@ -36,6 +44,12 @@
       <h2>Analysis</h2>
       <div id="stats" class="stats"></div>
       <div id="warn"></div>
+      <label class="target-field">Check against
+        <select id="target" aria-label="Firing target to check against">
+          <option value="">No target</option>
+        </select>
+      </label>
+      <div id="limits" class="limits"></div>
     </section>
 
     <section class="card">
@@ -67,21 +81,37 @@
     </section>
 
     <section class="card">
+      <h2>Paste a Recipe</h2>
+      <p class="note" style="margin-top:0">Copy a recipe from Insight-Live, a book, or a forum post and paste it here —
+        one material and amount per line. A line reading “Additions” or “Colorants” puts everything below it in the
+        additions group, or start a line with <code>+</code>.</p>
+      <textarea id="paste" class="paste" placeholder="Custer Feldspar 40&#10;Silica 20&#10;Whiting 20&#10;EPK 20&#10;&#10;Additions&#10;Red Iron Oxide 2"></textarea>
+      <div class="btnbar">
+        <button id="pasteBtn" class="btn small">Load pasted recipe</button>
+      </div>
+      <div id="pasteResult"></div>
+    </section>
+
+    <section class="card">
       <h2>Import / Export</h2>
-      <textarea id="io" placeholder="Recipe + analysis JSON appears here on Export. Paste a recipe JSON and press Import to load it."></textarea>
+      <textarea id="io" placeholder="Recipe JSON or Insight-Live XML appears here on Export. Paste either one and press Import to load it."></textarea>
       <div class="btnbar">
         <button id="exportBtn" class="btn small">Export JSON</button>
-        <button id="importBtn" class="btn ghost small">Import JSON</button>
+        <button id="xmlBtn" class="btn small">Export XML</button>
+        <button id="importBtn" class="btn ghost small">Import</button>
+        <button id="downloadBtn" class="btn ghost small">Download .xml</button>
+        <button id="copyBtn" class="btn ghost small">Copy</button>
       </div>
-      <p class="note">This is the bridge to Insight-Live until a live sync path is
-        chosen. Recipes round-trip as JSON now; HTML/paste import is next.</p>
+      <p class="note">Export XML gives you an Insight-Live-shaped file for the current recipe — import it back into
+        Insight-Live to get it into your account. Import reads either JSON or Insight-Live XML.</p>
     </section>
   </main>
 
   <footer>
-    <p class="note">🏺 vibe-clay <span id="version">v1.0.0</span> ·
+    <p class="note">🏺 vibe-clay <span id="version">v1.1.0</span> ·
       <a href="https://github.com/RolynTrotter/vibe-clay">source &amp; issues</a> ·
       chemistry from nominal material analyses — test tiles still rule.</p>
+    <p class="note" id="saveState"></p>
   </footer>
 
   <script type="module" src="./js/app.js"></script>

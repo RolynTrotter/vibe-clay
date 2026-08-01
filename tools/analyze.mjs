@@ -16,7 +16,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { analyzeRecipe, lineBlend, indexMaterials, buildResolver, displayOrder } from '../js/chemistry.js';
-import { toInsightLiveXML } from '../js/import.js';
+import { parseInsightLiveXML, toInsightLiveXML } from '../js/import.js';
+import { checkLimits } from '../js/limits.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const db = JSON.parse(readFileSync(resolve(ROOT, 'data/materials.json'), 'utf8'));
@@ -37,40 +38,6 @@ for (let i = 0; i < args.length; i++) {
 // or stdin. Everything else reads a single source (file or stdin).
 const raw = files.length ? files.map(f => readFileSync(f, 'utf8')) : [readFileSync(0, 'utf8')];
 
-// --- lightweight Insight-Live XML parse (node has no DOMParser) ---
-function parseXML(xml) {
-  const recipes = [];
-  const recipeRe = /<recipe\b([^>]*)>([\s\S]*?)<\/recipe>/g;
-  let m;
-  while ((m = recipeRe.exec(xml))) {
-    const attrs = attrMap(m[1]);
-    const lines = [];
-    const lineRe = /<recipeline\b([^/>]*)\/?>/g;
-    let lm;
-    while ((lm = lineRe.exec(m[2]))) {
-      const a = attrMap(lm[1]);
-      const rawName = a.material || '';
-      const canonical = resolveMat(rawName);
-      lines.push({
-        material: canonical || rawName,
-        rawMaterial: rawName,
-        matched: canonical != null,
-        amount: parseFloat(a.amount) || 0,
-        additive: a.added === 'true',
-      });
-    }
-    recipes.push({ name: attrs.name || 'Untitled', code: attrs.codenum || '', lines });
-  }
-  return recipes;
-}
-function attrMap(s) {
-  const o = {};
-  const re = /(\w+)="([^"]*)"/g;
-  let a;
-  while ((a = re.exec(s))) o[a[1]] = a[2];
-  return o;
-}
-
 // --- normalise JSON recipes (resolve material aliases too) ---
 function fromJSON(data) {
   const list = Array.isArray(data) ? data : (data.recipe ? [data.recipe] : [data]);
@@ -87,11 +54,15 @@ function fromJSON(data) {
 
 function parseSource(text) {
   const trimmed = text.trim();
-  return trimmed.startsWith('<') ? parseXML(trimmed) : fromJSON(JSON.parse(trimmed));
+  return trimmed.startsWith('<')
+    ? parseInsightLiveXML(trimmed, db)
+    : fromJSON(JSON.parse(trimmed));
 }
 const recipes = raw.flatMap(parseSource);
 
 const pad = (s, n) => String(s).padEnd(n);
+// UMF is undefined for a fluxless recipe; print a dash, not a misleading 0.000.
+const fmtUmf = v => (v == null ? '—' : v.toFixed(3));
 
 // --xml: emit Insight-Live-importable XML for the recipe(s) and exit. Round-trips
 // JSON -> XML so a drafted recipe can be pasted straight into Insight-Live.
@@ -120,7 +91,7 @@ if (blend != null) {
   for (const p of points) for (const ox of Object.keys(p.analysis.oxides)) oxKeys.add(ox);
   console.log('UMF:');
   for (const ox of displayOrder([...oxKeys])) {
-    const row = points.map(p => cell((p.analysis.oxides[ox]?.umf ?? 0).toFixed(3)));
+    const row = points.map(p => cell(fmtUmf(p.analysis.oxides[ox]?.umf)));
     console.log(pad('  ' + ox, 8) + row.join(''));
   }
   // Key ratios / metrics along the line.
@@ -145,20 +116,22 @@ if (blend != null) {
 }
 
 // --- limit checking ---
+// Shares js/limits.js with the app so both flag exactly the same values; this
+// only renders the result as terminal text.
 function flags(a, targetKey) {
-  const t = limits.targets[targetKey];
-  if (!t) return [];
-  const out = [];
-  const check = (name, val, range) => {
-    if (val == null || !range) return;
-    if (val < range[0]) out.push(`${name} ${val} below ${range[0]} (low)`);
-    else if (val > range[1]) out.push(`${name} ${val} above ${range[1]} (high)`);
-  };
-  for (const [ox, range] of Object.entries(t.oxides || {})) {
-    if (ox === 'KNaO') check('KNaO', a.ratios.KNaO, range);
-    else check(ox, a.oxides[ox] ? a.oxides[ox].umf : 0, range);
+  const result = checkLimits(a, limits.targets[targetKey]);
+  if (!result) return [];
+  const out = result.checks
+    .filter(c => c.status === 'low' || c.status === 'high')
+    // c.label is subscripted for the web UI; the terminal uses plain ASCII to
+    // match the UMF table printed above it.
+    .map(c => `${c.key.replace('_', ':')} ${c.value} ${c.status === 'low' ? `below ${c.min} (low)` : `above ${c.max} (high)`}`);
+
+  // A partial check must never print as a clean pass.
+  const uncheckable = result.checks.length - result.checkedCount;
+  if (uncheckable > 0) {
+    out.push(`${uncheckable} value(s) not computable${a.hasFlux ? '' : ' (no fluxes — UMF undefined)'}`);
   }
-  for (const [r, range] of Object.entries(t.ratios || {})) check(r.replace('_', ':'), a.ratios[r], range);
   return out;
 }
 
@@ -172,7 +145,7 @@ for (const r of recipes) {
   console.log('UMF:');
   for (const ox of displayOrder(Object.keys(a.oxides))) {
     const o = a.oxides[ox];
-    console.log(`  ${pad(ox, 6)} ${pad(o.umf.toFixed(3), 8)} ${o.weightPct.toFixed(2)}%`);
+    console.log(`  ${pad(ox, 6)} ${pad(fmtUmf(o.umf), 8)} ${o.weightPct.toFixed(2)}%`);
   }
   if (rr.KNaO != null) console.log(`  (KNaO) ${rr.KNaO.toFixed(3)}`);
   if (a.unknownMaterials.length) console.log(`⚠ unmatched materials: ${a.unknownMaterials.join(', ')}`);

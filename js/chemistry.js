@@ -164,7 +164,11 @@ export function analyzeRecipe(recipe, materialIndex, opts = {}) {
       weightPct: totalFiredGrams ? round((oxideGrams[ox] / totalFiredGrams) * 100, 2) : 0,
       molePct: totalMoles ? round((mol / totalMoles) * 100, 2) : 0,
       // UMF value: moles relative to the flux unity. Fluxes sum to 1.0.
-      umf: fluxMoles ? round(mol / fluxMoles, 3) : 0,
+      // With no fluxes there is nothing to normalise against, so the UMF is
+      // undefined rather than zero — reporting 0.000 for an oxide that is most
+      // of the glaze by weight reads as "there is none", which is the opposite
+      // of the truth. Callers must render null as "—", not as a number.
+      umf: fluxMoles ? round(mol / fluxMoles, 3) : null,
     };
   }
 
@@ -190,6 +194,10 @@ export function analyzeRecipe(recipe, materialIndex, opts = {}) {
   const kNaO = fluxMoles ? round(((oxideMoles.K2O || 0) + (oxideMoles.Na2O || 0)) / fluxMoles, 2) : null;
 
   return {
+    // False when the recipe has no fluxes at all (a slip, an engobe, or a
+    // half-entered recipe). The UMF column is undefined in that case; weight-%
+    // and mole-% are still meaningful.
+    hasFlux: fluxMoles > 0,
     batchGrams: round(batchGrams, 2),
     baseGrams: round(baseGrams, 2),
     additionGrams: round(additionGrams, 2),
