@@ -1,0 +1,89 @@
+{
+  "skill_name": "vibe-clay",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "leach-base-wrong-cone",
+      "prompt": "Analyse this at cone 6: Custer Feldspar 40, Silica 25, Whiting 20, EPK 15.",
+      "expected_output": "Runs the engine and reports actual UMF numbers. Flags B2O3 0 and CaO 0.766, but goes past reciting flags to name the diagnosis: this is the classic 4-part Leach base, a cone 10 glaze at cone 6, and will fire dry/underfired. Notes that high CaO won't rescue it because calcia is refractory until hot. Offers a concrete fix (substitute 15-20 of whiting/feldspar for Frit 3134 or 3110).",
+      "files": []
+    },
+    {
+      "id": 2,
+      "eval_name": "shivering-sign-convention",
+      "prompt": "My glaze computes 6.2 expansion, my body is Laguna Frost at about 7. Edges are chipping badly. I figure the glaze is straining the body, so I should add soda to raise expansion?",
+      "expected_output": "Confirms soda is the right lever but corrects the mechanism: body 7.0 > glaze 6.2 means the glaze is in COMPRESSION, not tension. That is the shivering/edge-chipping direction. Does not accept the user's inverted framing. States there is no universal mismatch threshold. Suggests a target near 6.5-6.7 rather than matching 7.0, since some compression is desirable.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "eval_name": "lithium-expansion-caveat",
+      "prompt": "I'm adding 2% lithium carbonate to soften a stiff cone 6 melt, but the calculator says my expansion goes up. Should I cut it?",
+      "expected_output": "Does NOT tell the user to cut lithium on the basis of the calculated number. States that the additive expansion model overstates lithium's contribution and real fired expansion is lower (per Hansen/Digitalfire). Identifies soda/high-boron frit as the thing to cut first if crazing appears. Bonus: notes the expansion figure is a relative comparative index, not a dilatometer COE.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "eval_name": "shino-flags-are-the-signature",
+      "prompt": "Analyse this cone 6 soda-ash shino for a saggar carbon-trap firing: Nepheline Syenite 34, Spodumene 26, EPK 12, Ball Clay 8, Soda Ash 8, Ferro Frit 3110 8, Silica 4.",
+      "expected_output": "Runs the engine and reports numbers. Flags high Al2O3, high KNaO, low Si:Al, low CaO, low B2O3 against cone6-glossy — but explicitly states these flags ARE the shino signature, not errors. Does not recommend 'fixing' the glaze toward the glossy limits. Ideally compares to a classic cone 10 shino to show it sits even further outside.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "eval_name": "kaki-iron-red-requirements",
+      "prompt": "I've been trying to get a kaki iron red at cone 6 for ages. I tried a 20% iron glaze and it crawled like crazy, though it was dark red. What am I doing wrong?",
+      "expected_output": "Identifies kaki as hematite precipitating from an iron-supersaturated melt on cooling. Gives all four requirements: iron 11-14% (20% overshot), low alumina 0.2-0.3 with Si:Al 10-14, slow cool specifically through 1050-900 C (not just below peak), and phosphorus/bone ash 2-6% as nucleating aid. Critically, diagnoses the 20% crawl as a DRIED-LAYER failure (iron is a non-plastic filler with high water demand, raw layer has no clay bond) rather than a melt failure. Recommends CMC and thinner application.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "eval_name": "sic-dosage-and-additions",
+      "prompt": "For my cone 6 copper red I want to go to 2% silicon carbide for stronger reduction, plus add both lithium carbonate and strontium carbonate. I have 800 mesh SiC.",
+      "expected_output": "Rejects 2% SiC as 4-8x the published in-glaze range, predicting a foamed gray result. Raises the LOI problem — gas arriving late while the melt is sealing. Checks the expansion consequence against the user's known body fit. Suggests trading strontium FOR lithium rather than adding both. Brackets SiC at 0.5-0.75% for 800 mesh, and notes 800 mesh is preferable to coarser (faster oxidation, earlier gas release, less texture risk). Treats SiC/Cu/Sn as additions, computing fit and melt on the base.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "eval_name": "raw-calcined-split-invisible-to-umf",
+      "prompt": "I refactored my blend from ten ingredients down to six and kept the unity formula identical. EPK is now 22.9% and I dropped the calcined kaolin entirely. Does this look good?",
+      "expected_output": "Catches a problem the UMF cannot see: doubling raw EPK reintroduces drying shrinkage and crawling risk that the raw/calcined split existed to prevent. Recommends splitting back to roughly 12.8% raw / 8.6% calcined, and notes this also drops LOI substantially. Suggests self-calcining EPK from bisque firings to avoid a new supplier variable. Does NOT simply confirm the recipe because the unity formula matches.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "eval_name": "orange-peel-ask-schedule-first",
+      "prompt": "I keep getting orange peel on this glaze. Any ideas?",
+      "expected_output": "Does not immediately assert 'your firing schedule is wrong' as the sole diagnosis. Asks what the schedule actually is, or presents schedule and chemistry/particle-size causes as parallel candidates. States the key rule: orange peel is set at PEAK, so a cooling drop-and-hold affects colour but cannot fix surface levelling. Mentions the 1150-1100 C smoothing window and chemical fluidity levers (strontium, lithium) plus sieving/milling.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "eval_name": "triaxial-design-silica-corner",
+      "prompt": "I want to run a triaxial with silica, lithia and strontia as the three corners on a GA6-C background.",
+      "expected_output": "Points out that silica cannot be a triaxial corner when it needs to vary independently of the fluxes. Proposes a valid redesign — three fluxes at the corners at a constant molar addition against a fixed background. If magnesia is used, recommends talc over dolomite because talc's co-oxide is silica (helps expansion) whereas dolomite's is CaO (a high-expansion flux that confounds the axis).",
+      "files": []
+    },
+    {
+      "id": 10,
+      "eval_name": "expansion-anchoring-not-absolutes",
+      "prompt": "My variant computes 5.0 expansion and G2926B computes 6.4. G2926B fits Frost fine in my experience. Is the variant's number meaningful?",
+      "expected_output": "Accepts that comparing on the same coefficient set against an empirically-anchored known-good glaze is a valid internal comparison — a 1.4-point gap below a proven anchor is meaningful information. Does not dismiss the numbers as 'just a relative index' and stop there. May add that the model is least reliable for Li/Mg/spodumene glazes and that crystallization can leave an alkali-enriched residual glass with higher real expansion than the bulk calculation implies.",
+      "files": []
+    },
+    {
+      "id": 11,
+      "eval_name": "mgo-suppresses-iron-crystals",
+      "prompt": "I put 15% black iron oxide in my base (Al2O3 0.45, MgO 0.41, B2O3 0.11) and got a flat black with barely any crystallization. Why?",
+      "expected_output": "Names all three suppressing factors, and identifies MgO as the dominant one: Fe2+ and Mg2+ substitute nearly freely (same charge, near-identical ionic radius, both octahedral), so iron dissolves into the Mg-silicate structure rather than precipitating a separate phase. Also cites Al2O3 raising viscosity and stabilizing Fe3+, and B2O3 suppressing devitrification. Distinguishes 'no crystallization' from 'microcrystalline rather than coarse plates'.",
+      "files": []
+    },
+    {
+      "id": 12,
+      "eval_name": "stain-vs-ion-effects",
+      "prompt": "Stains give me flat colour. Can I just add rutile and TCP to a stained glaze to get variegation instead of using raw oxides?",
+      "expected_output": "Yes, mostly — variegation, opalescence and phase separation are properties of the base melt, not the colorant, so they happen over a stain with the fixed hue riding underneath. But identifies the exceptions clearly: effects where the colour IS the redox or crystallization chemistry of the ion cannot be replicated — copper red, tenmoku/oil spot/teadust, true rutile blue. Notes stains are refractory at heavy loadings and that specific stain families demand specific host chemistry.",
+      "files": []
+    }
+  ]
+}
