@@ -129,13 +129,20 @@ node tools/analyze.mjs library.xml --blend 5   # blends the first two recipes
 The glaze skills plus the chemistry engine package into a single skill zip, so
 Claude can compute real UMF numbers in an ordinary chat — no repo, no terminal.
 
+**Get the zip from the [latest release](https://github.com/RolynTrotter/vibe-clay/releases/latest)**
+(`vibe-clay-<version>.zip`), or build it yourself:
+
 ```bash
 npm run build:skill      # → dist/vibe-clay-1.1.0.zip
+npm run test:skill       # zip shape + frontmatter + engine, from an unzipped copy
 ```
 
-Upload that zip wherever custom skills are added (Settings → Capabilities /
-Skills), then just ask a glaze question: "here's my cone 6 clear, why is it
-crazing?" The skill loads itself when the conversation is about glazes.
+> **Not** the green *Code → Download ZIP* button — that's the source tree, which
+> has five `SKILL.md` files in it and the uploader rejects it.
+
+Upload the zip in claude.ai under Settings → Features → Skills (needs code
+execution enabled), then just ask a glaze question: "here's my cone 6 clear, why
+is it crazing?" The skill loads itself when the conversation is about glazes.
 
 What's in the zip:
 
@@ -161,8 +168,18 @@ One version number covers the app, the engine, and the skill.
 copy. `npm run check:version` fails if they drift, and `build:skill` runs the
 same check before packaging.
 
-To cut a release: bump those four, note the changes in `CHANGELOG.md`, and
-rebuild the zip.
+To cut a release: bump those four, note the changes in `CHANGELOG.md`, merge,
+then tag `main`:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+`.github/workflows/skill.yml` builds the zip, runs the checks, refuses a tag
+that doesn't match `package.json`, and attaches `vibe-clay-<version>.zip` to a
+GitHub Release. The same workflow builds and tests on every push and PR, with
+the zip kept as a build artifact — so an untagged `main` still has a downloadable
+zip, it just isn't a release.
 
 ## Deploy
 

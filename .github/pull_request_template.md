@@ -24,6 +24,5 @@
 - [ ] Runs locally (`python3 -m http.server` → open the page, no console errors)
 - [ ] No new dependencies / build step (stays GitHub-Pages-static)
 - [ ] Docs / skill updated if behaviour or data model changed
-- [ ] If this touched the engine, `data/`, or `skills/`: `npm run build:skill`
-      still produces a working zip
+- [ ] `npm run build:skill && npm run test:skill` passes (CI runs it too)
 - [ ] Version bumped + `CHANGELOG.md` entry, if this is user-visible

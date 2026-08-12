@@ -1,0 +1,67 @@
+name: Skill zip
+
+# Builds and tests the uploadable skill zip. On a v* tag it also publishes the
+# zip as a Release asset, so the file you upload to claude.ai is a download and
+# not a build step. (Downloading the repo's own "Code → Download ZIP" gives you
+# the source tree, which has five SKILL.md files and won't upload.)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test, publish on a tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only used by the release step
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20, not the latest: the bundle claims to run on 18+, and 22+ would
+      # hide a missing "type": "module" by auto-detecting ES modules.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Read version
+        id: version
+        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the zip
+        run: node tools/build-skill.mjs
+
+      - name: Check it's uploadable and the engine runs
+        run: node tools/test-skill.mjs
+
+      - name: Tag must match package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          expected="v${{ steps.version.outputs.version }}"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "::error::tag $GITHUB_REF_NAME doesn't match package.json ($expected). Bump the version, or retag."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vibe-clay-skill-${{ steps.version.outputs.version }}
+          path: dist/vibe-clay-*.zip
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/vibe-clay-*.zip \
+            --title "vibe-clay $GITHUB_REF_NAME" \
+            --notes "Download \`vibe-clay-${{ steps.version.outputs.version }}.zip\` below and upload it in claude.ai under **Settings → Features → Skills** to do glaze chemistry in a regular chat. Needs code execution enabled.
+
+          Changes are in [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/CHANGELOG.md)."

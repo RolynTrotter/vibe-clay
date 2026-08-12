@@ -34,7 +34,16 @@ signal.
   it can be added to a phone home screen and works in a studio with no signal.
 - **Test suite** — 60 tests on the chemistry engine, the paste parser, the
   limits check, and XML round-tripping (`npm test`), run in CI on every push and
-  pull request.
+  pull request, against Node 18, 20 and 22.
+- **Release workflow** (`.github/workflows/skill.yml`) — pushing a `v*` tag
+  builds the skill zip and attaches it to a GitHub Release, so the file you
+  upload is a download rather than a build step. The same workflow builds and
+  tests on every push and PR, keeps the zip as an artifact, and fails a tag that
+  doesn't match `package.json`.
+- `npm run test:skill` — unzips the built artifact somewhere else and runs it
+  from there: zip shape (one top-level folder, exactly one `SKILL.md`),
+  the frontmatter rules the uploader enforces, and the engine's output for a
+  known recipe.
 
 ### Changed
 

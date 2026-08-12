@@ -28,5 +28,5 @@ jobs:
       # shell, not by node: `node --test` only learned to expand patterns itself
       # in Node 22, and this has to work on the floor version too.
       - run: npm test
-      - name: Skill version matches package.json
-        run: npm run check:version
+      # The version-sync check isn't repeated here — the "Skill zip" workflow
+      # runs build-skill.mjs on every PR, which enforces it.
