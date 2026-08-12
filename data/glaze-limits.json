@@ -2,7 +2,9 @@
   "_meta": {
     "description": "Typical UMF limit ranges for functional glossy glazes, as heuristics for flagging a recipe that's likely to craze, be under-durable, or misbehave. These are GUIDANCE from common ceramics references (e.g. Hesselberth & Roy 'Mastering Cone 6 Glazes' for the cone-6 set), not hard rules — plenty of good glazes sit outside them. Values are UMF (fluxes = 1.0). ratios are molar.",
     "source": "Compiled from common glaze-chemistry references. Approximate.",
-    "version": "0.1.0"
+    "version": "0.2.0",
+    "targets": "Pick the target that matches what the glaze is TRYING to be. Checking a shino or a tenmoku against cone6-glossy produces a wall of flags that are the glaze's signature rather than its faults — see `families` below.",
+    "version_note": "0.2.0 adds cone6-iron-crystal, cone6-copper-red and cone6-matte, plus the `families` block describing glaze types that sit outside the glossy limits by design."
   },
   "targets": {
     "cone6-glossy": {
@@ -28,6 +30,84 @@
         "KNaO": [0.1, 0.4]
       },
       "ratios": { "SiO2_Al2O3": [7, 12] }
+    },
+    "cone6-iron-crystal": {
+      "label": "Cone 6 iron crystallisation (kaki / tenmoku / oil spot / teadust)",
+      "oxides": {
+        "SiO2": [2.5, 4.0],
+        "Al2O3": [0.2, 0.3],
+        "B2O3": [0.0, 0.05],
+        "MgO": [0.0, 0.05],
+        "CaO": [0.35, 0.9]
+      },
+      "ratios": { "SiO2_Al2O3": [10, 14] },
+      "notes": [
+        "Low alumina is the point: alumina raises melt viscosity and suppresses nucleation, so the glossy limits' 0.25-0.5 band actively prevents the effect.",
+        "B₂O₃ near zero — boron suppresses iron devitrification.",
+        "MgO near zero, and this is the one that most often silently kills the effect: Fe²⁺ and Mg²⁺ substitute nearly freely (same charge, near-identical ionic radius, both octahedral), so iron dissolves into the Mg-silicate structure instead of precipitating its own phase.",
+        "Iron loading is an ADDITION, not part of this UMF: 11-14% for kaki. 20% overshoots and tends to crawl — that is a dried-layer failure (iron is a non-plastic filler with high water demand, so the raw layer has almost no clay bond), not a melt failure.",
+        "Phosphorus helps: 2-6% bone ash or TCP drives the liquid-liquid phase separation that seeds hematite.",
+        "Needs a slow cool specifically through 1050-900 °C, not merely a slow drop below peak. This conflicts with inclusion stains, which want a fast drop from peak — fire them in separate loads."
+      ]
+    },
+    "cone6-copper-red": {
+      "label": "Cone 6 copper red via in-glaze SiC reduction (electric)",
+      "oxides": {
+        "SiO2": [3.0, 3.3],
+        "Al2O3": [0.22, 0.28],
+        "B2O3": [0.15, 0.2],
+        "KNaO": [0.25, 0.35]
+      },
+      "ratios": { "SiO2_Al2O3": [8, 10] },
+      "notes": [
+        "A glassy oxblood is properly cone 9-10 reduction; at cone 6 in an electric kiln the route is in-glaze reduction with silicon carbide, not atmosphere.",
+        "High alumina keeps copper ionic and green — hence the tight low band.",
+        "Excess boron fights the red and raises expansion.",
+        "KNaO soda-dominant.",
+        "Additions, outside this UMF: CuO 0.3-0.5%, SnO₂ ~1% to nucleate colloidal copper, SiC 0.25-0.3% at 500 mesh or 0.5-0.75% at 800 mesh. Finer mesh is better — faster complete oxidation, earlier gas release, no lizard-skin texture.",
+        "2% SiC is 4-8× the published range and gives a foamed grey, with LOI more than doubling and the gas arriving late while the melt is sealing.",
+        "Prefer a known-style recipe that has actually produced red in someone's electric kiln over a theoretically perfect computed one; tune expansion after you have a tile that reds up."
+      ]
+    },
+    "cone6-matte": {
+      "label": "Cone 6 matte (dolomite / calcium-magnesium silicate matte)",
+      "oxides": {
+        "SiO2": [2.0, 3.2],
+        "Al2O3": [0.3, 0.6],
+        "B2O3": [0.0, 0.25],
+        "CaO": [0.3, 0.8],
+        "MgO": [0.0, 0.5]
+      },
+      "ratios": { "SiO2_Al2O3": [4.5, 6.5] },
+      "notes": [
+        "A true matte is a crystallised surface, not an underfired one. If it's dry and pinholed rather than smooth and buttery, it's underfired — a different problem with a different fix.",
+        "'Dolomite matte' names the INPUT; 'diopside matte' names the OUTPUT crystal (CaMgSi₂O₆). Same phenomenon described from two ends — people use them interchangeably and mean the same glaze.",
+        "Magnesia matte is genuinely distinct: high MgO with low CaO, usually from talc, giving enstatite/forsterite rather than diopside. Drier, more opaque, more likely to be the surface people call 'satin'.",
+        "Matte surfaces are more leachable than glossy ones at the same chemistry — the crystallised surface has more area and the residual glass between crystals is alkali-enriched. Be conservative about matte interiors on functional ware."
+      ]
+    }
+  },
+  "families": {
+    "_note": "Glaze families that sit OUTSIDE the functional-glossy limits by design. When a recipe flags heavily against cone6-glossy, check this list before calling it broken — the flags may be the signature. Say which family it looks like and what the flags mean, rather than reciting them as faults.",
+    "shino": {
+      "signature": "High Al₂O₃ (0.8-1.1), high KNaO (0.6-0.8), low Si:Al (3.5-4.5), low CaO, low-to-no B₂O₃.",
+      "reading": "Every one of those is the shino. A cone 6 soda-ash shino flags five ways against cone6-glossy and is working exactly as intended; the classic Malcolm Davis cone 10 shino computes further outside still (Si:Al 3.49, Al₂O₃ 1.093, KNaO 0.77). Do not 'correct' it toward the glossy limits."
+    },
+    "iron-crystal": {
+      "signature": "Low Al₂O₃ (0.2-0.3), high Si:Al (10-14), B₂O₃ and MgO near zero.",
+      "reading": "Use target cone6-iron-crystal. Against the glossy limits the low alumina reads as 'runny and under-durable', which for a tenmoku or kaki is the operating point."
+    },
+    "crystalline": {
+      "signature": "Very low Al₂O₃ (often <0.15), very high Si:Al, high ZnO or TiO₂, extremely fluid.",
+      "reading": "Macro-crystalline glazes need a melt fluid enough to run off the pot — hence catchers. Durability and running flags are expected, not faults."
+    },
+    "matte": {
+      "signature": "Low Si:Al (4-6.5), higher alumina and/or high CaO+MgO.",
+      "reading": "Use target cone6-matte. Distinguish a crystallised matte from an underfired one before diagnosing."
+    },
+    "raku": {
+      "signature": "Very high alkali, very low alumina and silica, high expansion.",
+      "reading": "Crazing is the intended decorative effect and the ware is non-functional. Expansion flags are meaningless here."
     }
   },
   "notes": {

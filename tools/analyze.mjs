@@ -7,7 +7,9 @@
 //
 //   node tools/analyze.mjs recipe.xml
 //   node tools/analyze.mjs recipe.json --target cone6-glossy
-//   cat recipe.xml | node tools/analyze.mjs --target cone6-glossy
+//   cat recipe.xml | node tools/analyze.mjs --target cone6-glossy --body laguna-frost
+//   node tools/analyze.mjs recipe.json --lint
+//   node tools/analyze.mjs --list-targets
 //
 // XML with multiple <recipe> elements analyses each. JSON may be a single
 // recipe { name, lines:[{material, amount, additive}] } or an array of them.
@@ -15,24 +17,60 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { analyzeRecipe, lineBlend, indexMaterials, buildResolver, displayOrder } from '../js/chemistry.js';
+import { analyzeRecipe, lineBlend, lintRecipe, fitToBody, indexMaterials, buildResolver, displayOrder } from '../js/chemistry.js';
 import { parseInsightLiveXML, toInsightLiveXML } from '../js/import.js';
 import { checkLimits } from '../js/limits.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const db = JSON.parse(readFileSync(resolve(ROOT, 'data/materials.json'), 'utf8'));
 const limits = JSON.parse(readFileSync(resolve(ROOT, 'data/glaze-limits.json'), 'utf8'));
+const bodies = JSON.parse(readFileSync(resolve(ROOT, 'data/bodies.json'), 'utf8'));
 const idx = indexMaterials(db);
 const resolveMat = buildResolver(db);
 
 // --- args ---
 const args = process.argv.slice(2);
-let target = null, files = [], emitXml = false, blend = null;
+let target = null, files = [], emitXml = false, blend = null, lint = false, bodyKey = null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--target') target = args[++i];
+  else if (args[i] === '--body') bodyKey = args[++i];
+  else if (args[i] === '--lint') lint = true;
   else if (args[i] === '--xml') emitXml = true;
   else if (args[i] === '--blend') blend = parseInt(args[++i], 10) || 5;
   else if (!args[i].startsWith('--')) files.push(args[i]);
+}
+
+// --- catalogue listings (no recipe needed) ---
+if (args.includes('--list-targets')) {
+  console.log('\nFiring targets (--target <key>):\n');
+  for (const [key, t] of Object.entries(limits.targets)) console.log(`  ${key.padEnd(20)} ${t.label}`);
+  console.log('\nGlaze families that sit outside the glossy limits BY DESIGN:\n');
+  for (const [key, f] of Object.entries(limits.families)) {
+    if (key.startsWith('_')) continue;
+    console.log(`  ${key}\n    signature: ${f.signature}\n    ${f.reading}\n`);
+  }
+  process.exit(0);
+}
+if (args.includes('--list-bodies')) {
+  console.log('\nClay bodies (--body <key>):\n');
+  for (const [key, b] of Object.entries(bodies.bodies)) {
+    const range = b.coeRange ? (b.coeRange[0] === b.coeRange[1] ? String(b.coeRange[0]) : b.coeRange.join('-')) : 'no figure';
+    console.log(`  ${key.padEnd(16)} ${b.label}`);
+    console.log(`  ${''.padEnd(16)} expansion ${range}  [${b.confidence}]`);
+    console.log(`  ${''.padEnd(16)} ${b.provenance}\n`);
+  }
+  console.log(bodies._meta.units + '\n');
+  process.exit(0);
+}
+
+const body = bodyKey ? bodies.bodies[bodyKey] : null;
+if (bodyKey && !body) {
+  console.error(`Unknown body '${bodyKey}'. Try --list-bodies.`);
+  process.exit(1);
+}
+if (target && !limits.targets[target]) {
+  console.error(`Unknown target '${target}'. Try --list-targets.`);
+  process.exit(1);
 }
 // Blend needs two recipes; accept them as two files, one file with two recipes,
 // or stdin. Everything else reads a single source (file or stdin).
@@ -135,6 +173,78 @@ function flags(a, targetKey) {
   return out;
 }
 
+// Which by-design outlier family does this chemistry look like? Used to stop a
+// wall of flags against the glossy limits from reading as a wall of faults —
+// for a shino or a tenmoku, those flags ARE the glaze.
+function detectFamilies(a) {
+  const al = a.oxides.Al2O3?.umf ?? 0;
+  const siAl = a.ratios.SiO2_Al2O3 ?? 0;
+  const kNaO = a.ratios.KNaO ?? 0;
+  const b2o3 = a.oxides.B2O3?.umf ?? 0;
+  const mgo = a.oxides.MgO?.umf ?? 0;
+  const hits = [];
+  if (al > 0.6 && kNaO > 0.5 && siAl && siAl < 5) hits.push('shino');
+  if (kNaO > 0.5 && al > 0 && al < 0.25) hits.push('raku');
+  if (al > 0 && al < 0.15 && siAl > 12) hits.push('crystalline');
+  if (!hits.includes('crystalline') && al > 0 && al < 0.3 && siAl > 9 && b2o3 < 0.08 && mgo < 0.08) hits.push('iron-crystal');
+  // Low Si:Al with decent alumina reads as matte — but a shino or a raku hits
+  // that test too, and both are the more specific answer. Don't list all three.
+  if (!hits.length && al >= 0.3 && siAl && siAl < 6.5) hits.push('matte');
+  return hits;
+}
+
+function printFlags(a, targetKey) {
+  const t = limits.targets[targetKey];
+  const f = flags(a, targetKey);
+  console.log(`\nvs ${t?.label || targetKey}: ${f.length ? '\n  ⚠ ' + f.join('\n  ⚠ ') : '✓ within typical ranges'}`);
+  // Only nudge toward the families when checking against a GLOSSY target — that
+  // is the one people reach for by default and the one that misreads outliers.
+  if (f.length >= 3 && targetKey.endsWith('-glossy')) {
+    const hits = detectFamilies(a);
+    if (hits.length) {
+      console.log('\n  ℹ These flags may be a signature rather than faults. This chemistry looks like:');
+      for (const key of hits) {
+        const fam = limits.families[key];
+        if (!fam) continue;
+        console.log(`     ${key} — ${fam.signature}`);
+        console.log(`       ${fam.reading}`);
+      }
+      console.log('     See --list-targets for a target that matches what the glaze is trying to be.');
+    }
+  }
+  if (t?.notes?.length) {
+    console.log(`\n  Notes on ${targetKey}:`);
+    for (const n of t.notes) console.log(`   · ${n}`);
+  }
+}
+
+function printLint(recipeLines) {
+  const findings = lintRecipe(recipeLines, idx);
+  console.log('\nLint (things the UMF cannot see):');
+  if (!findings.length) {
+    console.log('  ✓ nothing flagged');
+    return;
+  }
+  for (const f of findings) {
+    console.log(`  ${f.level === 'warn' ? '⚠' : '·'} [${f.code}] ${f.message}`);
+    if (f.fix) console.log(`      → ${f.fix}`);
+  }
+}
+
+function printFit(a) {
+  const fit = fitToBody(a.thermalExpansion, body);
+  const mark = fit.status === 'good' ? '✓' : fit.status === 'no-data' ? 'ℹ' : '⚠';
+  console.log(`\nFit vs ${body.label} [${fit.confidence}]:`);
+  console.log(`  ${mark} ${fit.headline}`);
+  console.log(`      ${fit.detail}`);
+  if (fit.status === 'no-data') return;
+  // An estimated body figure is a prompt to test, not a number to design against
+  // — say so every time, or the estimate quietly becomes a fact.
+  if (fit.confidence !== 'published') console.log(`      ⚠ ${body.provenance}`);
+  console.log('      Only meaningful when anchored: read this gap against a glaze you KNOW fits this body,');
+  console.log('      not as an absolute stress prediction. See data/bodies.json → _meta.units.');
+}
+
 // --- report ---
 for (const r of recipes) {
   const a = analyzeRecipe(r.lines, idx);
@@ -149,8 +259,7 @@ for (const r of recipes) {
   }
   if (rr.KNaO != null) console.log(`  (KNaO) ${rr.KNaO.toFixed(3)}`);
   if (a.unknownMaterials.length) console.log(`⚠ unmatched materials: ${a.unknownMaterials.join(', ')}`);
-  if (target) {
-    const f = flags(a, target);
-    console.log(`\nvs ${limits.targets[target]?.label || target}: ${f.length ? '\n  ⚠ ' + f.join('\n  ⚠ ') : '✓ within typical ranges'}`);
-  }
+  if (target) printFlags(a, target);
+  if (body) printFit(a);
+  if (lint) printLint(r.lines);
 }
