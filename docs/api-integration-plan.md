@@ -2,7 +2,7 @@
 
 > Status: **investigation / draft**. This documents what we know, what's blocked,
 > and the concrete steps to connect a phone-friendly frontend to Alex's
-> Insight-Live account. Last updated 2026-07-21.
+> Insight-Live account. Last updated 2026-08-01.
 
 ## TL;DR
 
@@ -128,6 +128,22 @@ resources.
 - [x] Starter materials database (Digitalfire-style analyses).
 - [x] Mobile-first UI (blue theme) on GitHub Pages.
 - [x] Claude skill for navigating Insight-Live.
+- [x] Recipe import parser (paste text → data model) — `js/paste-import.js`.
+- [x] Export back out to Insight-Live XML from the app (manual write path).
 - [ ] Decide: official API outreach vs proxy vs offline-only (needs Alex).
-- [ ] Recipe import parser (paste HTML/text → data model).
 - [ ] Sync adapter (once a data path is chosen).
+
+## Where the manual bridge now stands
+
+Both directions of Option C are implemented, so the round trip works today with
+no credentials and no proxy:
+
+```
+Insight-Live  --Export XML-->  vibe-clay   (library import, or paste the text)
+Insight-Live  <--Import XML--  vibe-clay   (Export XML / Download .xml)
+```
+
+Export preserves each recipe's `id`, share `key`, `codenum`, date, notes and the
+original Insight-Live material spellings, so a recipe that came from Insight-Live
+goes back as the same recipe rather than a near-duplicate. This is the fallback
+that stays useful no matter which sync option is eventually chosen.

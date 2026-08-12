@@ -1,10 +1,15 @@
 // vibe-clay app — recipe builder + live glaze analysis. Vanilla ES modules.
 import { analyzeRecipe, lineBlend, indexMaterials, displayOrder, OXIDE_GROUP } from './chemistry.js';
-import { parseInsightLiveXML } from './import.js';
+import { parseInsightLiveXML, toInsightLiveXML } from './import.js';
+import { parseRecipeText } from './paste-import.js';
+import { checkLimits } from './limits.js';
+import * as store from './store.js';
 
 const state = {
   db: null,
   idx: null,
+  limits: null,      // parsed glaze-limits.json
+  target: '',        // selected firing target key, '' = none
   library: [],       // recipes imported from an Insight-Live export
   blendPoints: null, // last computed line-blend points (for the Load buttons)
   recipe: {
@@ -16,13 +21,43 @@ const state = {
 const $ = (sel, root = document) => root.querySelector(sel);
 
 async function boot() {
-  const res = await fetch('./data/materials.json');
-  state.db = await res.json();
+  const [db, limits] = await Promise.all([
+    fetch('./data/materials.json').then(r => r.json()),
+    fetch('./data/glaze-limits.json').then(r => r.json()).catch(() => null),
+  ]);
+  state.db = db;
   state.idx = indexMaterials(state.db);
-  loadSample();
+  state.limits = limits;
+
+  // Pick up where the last session left off; fall back to the sample so a
+  // first-time visitor lands on something they can immediately poke at.
+  const saved = store.load();
+  state.library = saved.library;
+  state.target = saved.target;
+  if (saved.recipe) state.recipe = saved.recipe; else loadSample();
+
+  renderTargets();
   render();
+  renderLibrary();
   renderBlendSources();
   wireGlobalButtons();
+  registerServiceWorker();
+  if (!store.available()) {
+    $('#saveState').textContent =
+      'Storage is blocked in this browser (private mode?) — your work will be lost on reload. Export before you close the tab.';
+  }
+}
+
+// Persist after any change that's worth surviving a tab reload.
+function persist() {
+  store.save({ library: state.library, recipe: state.recipe, target: state.target });
+}
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  // file:// has no SW support and doesn't need one.
+  if (location.protocol === 'file:') return;
+  navigator.serviceWorker.register('./sw.js').catch(() => { /* offline is a bonus, not a requirement */ });
 }
 
 function loadSample() {
@@ -52,8 +87,7 @@ function render() {
 
 function addLine(additive) {
   state.recipe.lines.push({ material: state.db.materials[0].name, amount: 0, additive });
-  renderLines();
-  renderAnalysis();
+  recipeChanged({ relayout: true });
 }
 
 function rowHtml(i) {
@@ -66,6 +100,14 @@ function rowHtml(i) {
       <button class="tog" data-i="${i}" title="${togTitle}" aria-label="${togTitle}">${line.additive ? '▲' : '▼'}</button>
       <button class="del" data-i="${i}" title="Remove" aria-label="Remove line">×</button>
     </div>`;
+}
+
+// Every edit path funnels through here so nothing can change the recipe without
+// also re-analysing it and writing it back to storage.
+function recipeChanged({ relayout = false } = {}) {
+  if (relayout) renderLines();
+  renderAnalysis();
+  persist();
 }
 
 function renderLines() {
@@ -83,13 +125,21 @@ function renderLines() {
     <button class="btn ghost small addbtn" data-add="add">+ addition</button>`;
 
   wrap.querySelectorAll('select.mat').forEach(el =>
-    el.addEventListener('change', e => { state.recipe.lines[+e.target.dataset.i].material = e.target.value; renderAnalysis(); }));
+    el.addEventListener('change', e => {
+      const line = state.recipe.lines[+e.target.dataset.i];
+      line.material = e.target.value;
+      // The user has overridden the material, so the Insight-Live name no longer
+      // describes this line — drop it rather than exporting a stale name.
+      delete line.rawMaterial;
+      line.matched = true;
+      recipeChanged();
+    }));
   wrap.querySelectorAll('input.amt').forEach(el =>
-    el.addEventListener('input', e => { state.recipe.lines[+e.target.dataset.i].amount = parseFloat(e.target.value) || 0; renderAnalysis(); }));
+    el.addEventListener('input', e => { state.recipe.lines[+e.target.dataset.i].amount = parseFloat(e.target.value) || 0; recipeChanged(); }));
   wrap.querySelectorAll('button.tog').forEach(el =>
-    el.addEventListener('click', e => { const l = state.recipe.lines[+e.currentTarget.dataset.i]; l.additive = !l.additive; renderLines(); renderAnalysis(); }));
+    el.addEventListener('click', e => { const l = state.recipe.lines[+e.currentTarget.dataset.i]; l.additive = !l.additive; recipeChanged({ relayout: true }); }));
   wrap.querySelectorAll('button.del').forEach(el =>
-    el.addEventListener('click', e => { state.recipe.lines.splice(+e.currentTarget.dataset.i, 1); renderLines(); renderAnalysis(); }));
+    el.addEventListener('click', e => { state.recipe.lines.splice(+e.currentTarget.dataset.i, 1); recipeChanged({ relayout: true }); }));
   wrap.querySelectorAll('button.addbtn').forEach(el =>
     el.addEventListener('click', e => addLine(e.currentTarget.dataset.add === 'add')));
 }
@@ -120,7 +170,7 @@ function renderAnalysis() {
     const o = a.oxides[ox];
     return `<tr class="g-${o.group}">
       <td>${fmtOxide(ox)}</td>
-      <td class="${hi[ox] || ''}">${o.umf.toFixed(3)}</td>
+      <td class="${hi[ox] || ''}">${fmtUmf(o.umf)}</td>
       <td>${o.weightPct.toFixed(2)}</td>
       <td>${o.molePct.toFixed(2)}</td></tr>`;
   }).join('');
@@ -135,7 +185,63 @@ function renderAnalysis() {
   $('#warn').innerHTML = a.unknownMaterials.length
     ? `<div class="warnbox">Unknown material(s) skipped in chemistry: ${a.unknownMaterials.map(escapeHtml).join(', ')}</div>`
     : '';
+
+  renderLimits(a);
 }
+
+// --- Firing-target limit check ------------------------------------------
+
+function renderTargets() {
+  const sel = $('#target');
+  const targets = (state.limits && state.limits.targets) || {};
+  const opts = Object.entries(targets)
+    .map(([key, t]) => `<option value="${escapeHtml(key)}"${key === state.target ? ' selected' : ''}>${escapeHtml(t.label || key)}</option>`)
+    .join('');
+  sel.innerHTML = `<option value="">No target</option>${opts}`;
+  sel.value = state.target;
+}
+
+function renderLimits(a) {
+  const wrap = $('#limits');
+  const target = state.limits && state.limits.targets && state.limits.targets[state.target];
+  if (!target) { wrap.innerHTML = ''; return; }
+
+  const result = checkLimits(a, target);
+  const rows = result.checks.map(c => {
+    const val = c.value == null ? '—' : trim(c.value);
+    const arrow = c.status === 'low' ? '▼' : c.status === 'high' ? '▲' : '';
+    return `<tr class="lim-${c.status}">
+      <td>${c.label}</td>
+      <td class="lim-val">${val} ${arrow}</td>
+      <td class="lim-range">${trim(c.min)}–${trim(c.max)}</td></tr>`;
+  }).join('');
+
+  const uncheckable = result.checks.length - result.checkedCount;
+  const headline = result.checkedCount === 0
+    ? `<span class="lim-summary-out">Nothing could be checked.</span>`
+    : result.outCount === 0
+      ? `<span class="lim-summary-ok">All ${result.checkedCount} checked values inside the typical range.</span>`
+      : `<span class="lim-summary-out">${result.outCount} of ${result.checkedCount} checked outside the typical range.</span>`;
+  // Never let a partial check read as a clean bill of health.
+  const caveat = uncheckable > 0
+    ? ` ${uncheckable} value${uncheckable === 1 ? '' : 's'} couldn't be computed${a.hasFlux ? '' : ' — this recipe has no fluxes, so there\'s no unity formula to normalise against'}.`
+    : '';
+  const summary = headline + caveat;
+
+  wrap.innerHTML = `
+    <table class="limits-table">
+      <thead><tr><th>Value</th><th>This glaze</th><th>Typical</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="note">${summary} These ranges are heuristics for functional glossy glazes — outside them isn't wrong,
+      it's a prompt to think about why. Matte, crystalline, and art glazes live outside them on purpose.</p>`;
+}
+
+// 0.25 not 0.250, 6 not 6.00 — ranges read better without trailing zeros.
+const trim = n => String(Number(n));
+
+// UMF is undefined for a fluxless recipe; show that rather than a fake 0.000.
+const fmtUmf = v => (v == null ? '—' : v.toFixed(3));
 
 const stat = (k, v, u) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="u">${u}</div></div>`;
 const fmtOxide = ox => ox.replace(/(\d)/g, '<sub>$1</sub>');
@@ -143,11 +249,11 @@ const fmtOxide = ox => ox.replace(/(\d)/g, '<sub>$1</sub>');
 function loadFromLibrary(i) {
   const rec = state.library[i];
   if (!rec) return;
-  state.recipe = {
-    name: rec.name,
-    lines: rec.lines.map(l => ({ material: l.material, amount: l.amount, additive: l.additive })),
-  };
+  // Carry the whole recipe across, not just name+lines: the Insight-Live id,
+  // share key, code and notes are what let it export back as the same recipe.
+  state.recipe = { ...rec, lines: rec.lines.map(l => ({ ...l })) };
   render();
+  persist();
   document.querySelector('main').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -156,7 +262,7 @@ function importLibrary(xmlText) {
   state.library = recipes;
   renderLibrary();
   renderBlendSources();
-  if (recipes.length) loadFromLibrary(0);
+  if (recipes.length) loadFromLibrary(0); else persist();
 }
 
 // --- Line blend ---------------------------------------------------------
@@ -219,7 +325,7 @@ function renderBlendMatrix(A, B, points) {
     const group = OXIDE_GROUP[ox] || 'other';
     const cells = points.map(p => {
       const o = p.analysis.oxides[ox];
-      const v = o ? o.umf.toFixed(3) : '—';
+      const v = o ? fmtUmf(o.umf) : '—';
       return `<td class="${hi[ox] || ''}">${v}</td>`;
     }).join('');
     return `<tr class="g-${group}"><td class="rowlab">${fmtOxide(ox)}</td>${cells}</tr>`;
@@ -268,12 +374,16 @@ function loadBlendPoint(i) {
     lines: p.lines.map(l => ({ material: l.material, amount: l.amount, additive: l.additive })),
   };
   render();
+  persist();
   document.querySelector('main').scrollIntoView({ behavior: 'smooth' });
 }
 
 function renderLibrary() {
   const wrap = $('#library');
-  if (!state.library.length) { wrap.innerHTML = ''; return; }
+  const hasLib = state.library.length > 0;
+  $('#libExportBtn').hidden = !hasLib;
+  $('#libClearBtn').hidden = !hasLib;
+  if (!hasLib) { wrap.innerHTML = ''; return; }
   const items = state.library.map((rec, i) => {
     const n = rec.lines.filter(l => l.amount > 0).length;
     const flag = rec.unmatched.length
@@ -301,26 +411,140 @@ function wireGlobalButtons() {
     };
     reader.readAsText(file);
   });
-  $('#recipeName').addEventListener('input', e => { state.recipe.name = e.target.value; });
-  $('#sampleBtn').addEventListener('click', () => { loadSample(); render(); });
-  $('#clearBtn').addEventListener('click', () => { state.recipe = { name: 'Untitled Recipe', lines: [] }; render(); });
+  $('#recipeName').addEventListener('input', e => { state.recipe.name = e.target.value; persist(); });
+  $('#sampleBtn').addEventListener('click', () => { loadSample(); render(); persist(); });
+  $('#clearBtn').addEventListener('click', () => { state.recipe = { name: 'Untitled Recipe', lines: [] }; render(); persist(); });
+
+  $('#target').addEventListener('change', e => {
+    state.target = e.target.value;
+    renderAnalysis();
+    persist();
+  });
+
+  $('#libExportBtn').addEventListener('click', () =>
+    download(toInsightLiveXML(state.library), 'vibe-clay-library.xml'));
+  $('#libClearBtn').addEventListener('click', () => {
+    if (!confirm('Forget the imported library? The recipe in the builder stays.')) return;
+    state.library = [];
+    renderLibrary();
+    renderBlendSources();
+    persist();
+  });
 
   $('#blendBtn').addEventListener('click', runBlend);
+  $('#pasteBtn').addEventListener('click', loadPastedRecipe);
 
   $('#exportBtn').addEventListener('click', () => {
     const a = analyzeRecipe(state.recipe.lines, state.idx);
-    $('#io').value = JSON.stringify({ recipe: state.recipe, analysis: a }, null, 2);
-    $('#io').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setIo(JSON.stringify({ recipe: state.recipe, analysis: a }, null, 2));
   });
-  $('#importBtn').addEventListener('click', () => {
+  $('#xmlBtn').addEventListener('click', () => setIo(toInsightLiveXML(state.recipe)));
+  $('#importBtn').addEventListener('click', () => importFromIo($('#io').value));
+  $('#downloadBtn').addEventListener('click', () => {
+    const xml = toInsightLiveXML(state.recipe);
+    download(xml, filenameFor(state.recipe.name) + '.xml');
+  });
+  $('#copyBtn').addEventListener('click', async () => {
+    const text = $('#io').value;
+    if (!text) { flash('#copyBtn', 'Nothing to copy'); return; }
     try {
-      const parsed = JSON.parse($('#io').value);
-      const r = parsed.recipe || parsed;
-      if (!Array.isArray(r.lines)) throw new Error('missing lines[]');
-      state.recipe = { name: r.name || 'Imported', lines: r.lines };
-      render();
-    } catch (err) { alert('Could not import: ' + err.message); }
+      await navigator.clipboard.writeText(text);
+      flash('#copyBtn', 'Copied');
+    } catch {
+      // Clipboard API needs a secure context and a permission; selecting the
+      // text is the honest fallback rather than claiming a copy happened.
+      $('#io').select();
+      flash('#copyBtn', 'Selected — press copy');
+    }
   });
+}
+
+// --- Paste import --------------------------------------------------------
+
+function loadPastedRecipe() {
+  const text = $('#paste').value;
+  const out = $('#pasteResult');
+  if (!text.trim()) { out.innerHTML = '<div class="warnbox">Paste a recipe first.</div>'; return; }
+
+  const parsed = parseRecipeText(text, state.db);
+  if (!parsed.lines.length) {
+    out.innerHTML = `<div class="warnbox">Couldn't find any “material amount” lines in that.
+      Each material needs a number on its line.</div>`;
+    return;
+  }
+
+  state.recipe = { name: parsed.name, lines: parsed.lines };
+  render();
+  persist();
+
+  const bits = [`Loaded ${parsed.lines.length} line${parsed.lines.length === 1 ? '' : 's'}.`];
+  if (parsed.unmatched.length) {
+    bits.push(`Not in the materials database, so they're excluded from the chemistry:
+      <strong>${parsed.unmatched.map(escapeHtml).join(', ')}</strong>.`);
+  }
+  if (parsed.skipped.length) {
+    bits.push(`Ignored ${parsed.skipped.length} line${parsed.skipped.length === 1 ? '' : 's'} that didn't read as a material:
+      <em>${parsed.skipped.slice(0, 5).map(escapeHtml).join(' · ')}</em>${parsed.skipped.length > 5 ? ' …' : ''}.`);
+  }
+  const cls = parsed.unmatched.length || parsed.skipped.length ? 'warnbox' : 'okbox';
+  out.innerHTML = `<div class="${cls}">${bits.join(' ')}</div>`;
+  document.querySelector('main').scrollIntoView({ behavior: 'smooth' });
+}
+
+// --- Import / export plumbing -------------------------------------------
+
+function setIo(text) {
+  $('#io').value = text;
+  $('#io').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// One Import button for both formats — sniff which one it got rather than
+// making the user pick from a menu on a phone.
+function importFromIo(text) {
+  const trimmed = text.trim();
+  if (!trimmed) { alert('Paste some JSON or Insight-Live XML first.'); return; }
+  try {
+    if (trimmed.startsWith('<')) {
+      const recipes = parseInsightLiveXML(trimmed, state.db);
+      if (!recipes.length) throw new Error('no <recipe> elements found');
+      state.library = recipes;
+      renderLibrary();
+      renderBlendSources();
+      loadFromLibrary(0);
+      return;
+    }
+    const parsed = JSON.parse(trimmed);
+    const r = parsed.recipe || parsed;
+    if (!Array.isArray(r.lines)) throw new Error('missing lines[]');
+    state.recipe = { ...r, name: r.name || 'Imported' };
+    render();
+    persist();
+  } catch (err) { alert('Could not import: ' + err.message); }
+}
+
+function download(text, filename) {
+  const blob = new Blob([text], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Give the browser a moment to start the download before dropping the blob.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const filenameFor = name =>
+  (String(name || 'recipe').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'recipe');
+
+// Momentary button feedback — a phone has no hover state and no status bar.
+function flash(sel, msg) {
+  const el = $(sel);
+  const prev = el.textContent;
+  el.textContent = msg;
+  el.disabled = true;
+  setTimeout(() => { el.textContent = prev; el.disabled = false; }, 1400);
 }
 
 function escapeHtml(s) {

@@ -18,7 +18,9 @@ about the chemistry.
 ```
 tools/analyze.mjs           the CLI — everything runs through it
 js/chemistry.js             the engine (UMF, ratios, expansion, LOI, blends)
-js/import.js                Insight-Live XML serialisation
+js/import.js                Insight-Live XML parse + serialise (browser and Node)
+js/paste-import.js          free-text recipe -> data model
+js/limits.js                firing-target limit checks (shared with the CLI)
 data/materials.json         ~40 materials, nominal Digitalfire-style analyses
 data/glaze-limits.json      target ranges + the outlier families that break them
 data/bodies.json            clay-body expansion figures, each with its provenance
@@ -77,11 +79,31 @@ Material names resolve through an alias system, so Insight-Live spellings
 is printed as `⚠ unmatched` — say so rather than quietly analysing a partial
 recipe.
 
+**When the user pastes a recipe as plain text**, don't hand-transcribe it into
+JSON. Run it through the parser, which handles the formats recipes actually
+arrive in and tells you what it couldn't use:
+
+```js
+import { parseRecipeText } from './js/paste-import.js';
+const { name, lines, unmatched, skipped } = parseRecipeText(pasted, db);
+```
+
+Trailing or leading amounts, dot leaders, tabs and colons all work; an
+"Additions"/"Colorants" heading or a leading `+` marks colorants; firing notes
+("fire to cone 6") land in `skipped` instead of becoming a material. Report
+`unmatched` and `skipped` to the user — both mean the analysis isn't the whole
+recipe.
+
 ## Output
 
 UMF (fluxes normalised to 1.0) with oxide weight-%, then `Si:Al`, `SiB:Al`,
 `R2O:RO`, `KNaO`, relative expansion, LOI, and — with `--target` — every value
 outside the typical range for that firing. Report the actual numbers back.
+
+A UMF cell printed as `—` means **undefined, not zero**: the recipe has no
+fluxes, so there is no unity to normalise against (a slip, an engobe, or a
+half-entered recipe). Weight-% is still valid there. Never read a `—` as "none
+of this oxide" — check the weight-% column before saying anything about it.
 
 `--target` takes `cone6-glossy`, `cone10-glossy`, `cone6-iron-crystal`,
 `cone6-copper-red` or `cone6-matte`. **Pick the one the glaze is trying to be.**
@@ -124,7 +146,8 @@ Load one when the task calls for it, not up front.
   It *is* good for comparison against an empirically-anchored glaze.
 - Limit ranges are heuristics. Outside them isn't "wrong", it's a prompt to
   think — and for shino, tenmoku, crystalline, matte and raku, outside them is
-  the point.
+  the point. If the output says some values weren't computable, say so — a
+  partial check is not a pass.
 - Restate the recipe and the loadings you're analysing **before** diagnosing.
   Over-inferring from a number without checking the input is the most common way
   to be confidently wrong here.

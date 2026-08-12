@@ -10,10 +10,6 @@ versioning is [semver](https://semver.org).
 Acts on the Q&A corpus harvested from ~14 glaze conversations (#11): three
 places where the tool used to invent a number, cry wolf, or stay silent.
 
-Skipping 1.1.0 — PR #10 is open against that number for the app-side work
-(persistence, paste import, offline). This release is engine- and skill-side and
-doesn't touch those files.
-
 ### Added
 
 - **`data/bodies.json`** — clay-body expansion figures, each carrying its
@@ -52,6 +48,69 @@ doesn't touch those files.
   the orange-peel "set at peak" rule, colorant safety, and test-design rules.
 - `skills/vibe-clay/SKILL.md` — new commands, and guardrails against the four
   failure patterns the corpus identified.
+
+## [1.1.0] — 2026-08-01
+
+The release that makes the app usable day to day: it remembers your work, takes
+a pasted recipe, hands one back in Insight-Live's own format, and runs with no
+signal.
+
+### Added
+
+- **Your work persists.** The imported library, the recipe in the builder, and
+  the chosen firing target are saved to the device and restored on the next
+  visit (`js/store.js`). Nothing leaves the phone. If a browser blocks storage
+  (private mode), the app says so instead of quietly losing the recipe.
+- **Paste a recipe** (`js/paste-import.js`). Copy a recipe out of Insight-Live,
+  a book, or a forum post and paste it in. Handles trailing amounts, leading
+  amounts, dot leaders, tabs and colons; an "Additions"/"Colorants" heading or a
+  leading `+` marks colorants. Firing notes like "fire to cone 6" are recognised
+  as prose and skipped rather than read as a material. Anything it ignored or
+  couldn't match is reported back rather than silently dropped.
+- **Export to Insight-Live XML** from the app — the current recipe or the whole
+  library, as text to copy or a downloaded `.xml` to import into Insight-Live.
+  The Import button now takes JSON *or* Insight-Live XML and works out which.
+- **Firing-target check in the app** (`js/limits.js`). Pick cone 6 or cone 10
+  and every UMF value and ratio outside the typical range is flagged, with the
+  range shown next to it. `data/glaze-limits.json` was previously only reachable
+  from the CLI.
+- **Installable and offline** — web manifest, service worker, and app icons, so
+  it can be added to a phone home screen and works in a studio with no signal.
+- **Test suite** — 60 tests on the chemistry engine, the paste parser, the
+  limits check, and XML round-tripping (`npm test`), run in CI on every push and
+  pull request, against Node 18, 20 and 22.
+- **Release workflow** (`.github/workflows/skill.yml`) — pushing a `v*` tag
+  builds the skill zip and attaches it to a GitHub Release, so the file you
+  upload is a download rather than a build step. The same workflow builds and
+  tests on every push and PR, keeps the zip as an artifact, and fails a tag that
+  doesn't match `package.json`.
+- `npm run test:skill` — unzips the built artifact somewhere else and runs it
+  from there: zip shape (one top-level folder, exactly one `SKILL.md`),
+  the frontmatter rules the uploader enforces, and the engine's output for a
+  known recipe.
+
+### Changed
+
+- **One XML parser instead of two.** `parseInsightLiveXML()` now works in Node as
+  well as the browser, and `tools/analyze.mjs` uses it instead of its own copy.
+  The CLI consequently keeps recipe `id`, `key`, `date` and notes through a
+  round-trip, which its private parser had been dropping.
+- Changing a line's material clears the stored Insight-Live name for that line,
+  so an export can't hand back a name that no longer matches the material.
+
+### Fixed
+
+- **UMF is no longer reported as `0.000` for a recipe with no fluxes.** Without
+  fluxes there is no unity to normalise against, so the UMF is undefined — but
+  the engine printed a column of zeros, which reads as "there is none" for an
+  oxide that may be most of the glaze by weight (kaolin + silica showed
+  `SiO2 0.000` at 83.58 wt%). Those cells now show `—` in the app and the CLI,
+  `analysis.hasFlux` says whether the unity formula is meaningful, and the limit
+  check reports such values as not-computable instead of flagging them as below
+  range. A partial check no longer prints as a clean pass.
+- Loading a recipe from the library kept only its name and lines, losing the
+  Insight-Live `id`, share `key`, code and notes needed to export it back as the
+  same recipe.
 
 ## [1.0.0] — 2026-07-27
 

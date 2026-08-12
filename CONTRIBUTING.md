@@ -46,7 +46,15 @@ Claude chat** can do glaze chemistry.
 
 ```bash
 npm run build:skill      # → dist/vibe-clay-<version>.zip  (dist/ is gitignored)
+npm run test:skill       # then check the artifact is actually uploadable
 ```
+
+`test:skill` unzips the real artifact into a temp directory and runs it from
+there, so a file that didn't make it into the bundle fails here instead of in
+someone's chat. It checks the zip's shape (one top-level folder, **exactly one**
+`SKILL.md` — zipping the repo by hand gives you five and the upload is
+rejected), the frontmatter rules the uploader enforces, and the engine's output
+for a known recipe. CI runs both on every push and PR.
 
 The build copies the engine, the data, the CLI, and `glaze-qa`,
 `draft-recipe`, and `insight-live-navigator` (as `references/*.md`, frontmatter
@@ -76,6 +84,17 @@ source of truth; three files carry a copy:
 `npm run check:version` fails on drift, and `build:skill` checks before it
 packages. Semver: a chemistry result changing for the same input is a **major**
 bump — someone's recipe notes depend on those numbers.
+
+Once the bump is merged, tag `main`:
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3
+```
+
+That publishes a Release with the zip attached. The workflow rejects a tag that
+doesn't match `package.json`, so a forgotten bump fails loudly instead of
+shipping a mislabelled zip. Uploaded skills don't auto-update — a new zip means
+re-uploading it in claude.ai.
 
 ## Adding a material
 
