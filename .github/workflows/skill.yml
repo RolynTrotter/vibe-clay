@@ -55,13 +55,40 @@ jobs:
           path: dist/vibe-clay-*.zip
           if-no-files-found: error
 
+      # Attach the zip whether or not a release already exists for the tag.
+      #
+      # `gh release create` fails outright on a tag that already has a release,
+      # and the GitHub web UI gives you no way to create a tag WITHOUT creating a
+      # release alongside it — so cutting a release from a phone always produced
+      # "a release with the same tag name already exists" and shipped no zip. A
+      # release left as a draft does the same thing while being invisible to the
+      # API reads you'd use to debug it. Create when absent, upload when present.
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/vibe-clay-*.zip \
-            --title "vibe-clay $GITHUB_REF_NAME" \
-            --notes "Download \`vibe-clay-${{ steps.version.outputs.version }}.zip\` below and upload it in claude.ai under **Settings → Features → Skills** to do glaze chemistry in a regular chat. Needs code execution enabled.
+          notes="Download \`vibe-clay-${VERSION}.zip\` below and upload it in claude.ai under **Settings → Features → Skills** to do glaze chemistry in a regular chat. Needs code execution enabled.
 
-          Changes are in [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/CHANGELOG.md)."
+          Changes are in [CHANGELOG.md](https://github.com/${REPO}/blob/${GITHUB_REF_NAME}/CHANGELOG.md)."
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists — attaching the zip to it"
+            gh release upload "$GITHUB_REF_NAME" dist/vibe-clay-*.zip --clobber
+          else
+            echo "creating release $GITHUB_REF_NAME"
+            gh release create "$GITHUB_REF_NAME" dist/vibe-clay-*.zip \
+              --title "vibe-clay $GITHUB_REF_NAME" \
+              --notes "$notes"
+          fi
+
+          # Whatever path we took, the asset must actually be on the release —
+          # the first attempt at this reported success paths that shipped nothing.
+          assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
+          echo "assets on $GITHUB_REF_NAME: ${assets:-<none>}"
+          case "$assets" in
+            *vibe-clay-*.zip) ;;
+            *) echo "::error::no vibe-clay zip attached to $GITHUB_REF_NAME"; exit 1 ;;
+          esac
