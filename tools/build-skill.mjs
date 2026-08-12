@@ -66,6 +66,7 @@ const FILES = [
   'js/import.js',
   'data/materials.json',
   'data/glaze-limits.json',
+  'data/bodies.json',
   'tools/analyze.mjs',
 ];
 for (const f of FILES) {

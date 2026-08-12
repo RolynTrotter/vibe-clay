@@ -314,6 +314,284 @@ export function estimateExpansion(oxideMoles) {
 }
 
 /**
+ * Compare a glaze's computed expansion against a clay body's figure.
+ *
+ * The engine's expansion is a relative additive index, not a dilatometer COE,
+ * so this comparison is only meaningful when ANCHORED — see the note in
+ * data/bodies.json. What it is genuinely good for: given a glaze already known
+ * to fit the body, reading every other glaze against that same gap.
+ *
+ * Sign convention, which is the thing people invert: a glaze BELOW the body
+ * contracts less on cooling than the body does, so the body squeezes it — the
+ * glaze is in COMPRESSION. Too much of that is shivering (flakes off rims and
+ * edges). A glaze ABOVE the body is in TENSION, which is crazing.
+ *
+ * @param {number} expansion   from estimateExpansion()
+ * @param {object} body        an entry from data/bodies.json `bodies`
+ * @returns {{status: string, headline: string, detail: string,
+ *            bodyMid: number|null, gap: number|null, compressionPct: number|null,
+ *            targetBand: [number, number]|null, confidence: string}}
+ */
+export function fitToBody(expansion, body) {
+  const confidence = body?.confidence || 'unknown';
+  const range = body?.coeRange || (body?.coe != null ? [body.coe, body.coe] : null);
+
+  if (expansion == null || !range) {
+    return {
+      status: 'no-data',
+      headline: `No expansion figure for ${body?.label || 'this body'}`,
+      detail: body?.provenance || 'No published figure, and no defensible estimate.',
+      bodyMid: null, gap: null, compressionPct: null, targetBand: null, confidence,
+    };
+  }
+
+  const [lo, hi] = range;
+  const bodyMid = round((lo + hi) / 2, 3);
+  // Some compression is what you want — roughly 3-8% below the body.
+  const targetBand = [round(bodyMid * 0.92, 2), round(bodyMid * 0.97, 2)];
+  const gap = round(expansion - bodyMid, 2);
+  const compressionPct = round(((bodyMid - expansion) / bodyMid) * 100, 1);
+
+  let status, headline, detail;
+  if (expansion > hi) {
+    status = 'tension';
+    headline = `glaze ${expansion} ABOVE body ${fmtRange(range)} → glaze in tension → crazing direction`;
+    detail = 'Lower expansion: cut KNaO (Na₂O worst), add SiO₂, add B₂O₃, shift flux to MgO or Li₂O.';
+  } else if (expansion >= targetBand[0] && expansion <= targetBand[1]) {
+    status = 'good';
+    headline = `glaze ${expansion} sits ${compressionPct}% below body ${fmtRange(range)} → compression, in the usual target band`;
+    detail = `Target band for this body is ${targetBand[0]}-${targetBand[1]}. Compression is the strong direction; this is where you want to be.`;
+  } else if (expansion > targetBand[1]) {
+    status = 'slight-compression';
+    headline = `glaze ${expansion} sits ${compressionPct}% below body ${fmtRange(range)} → mild compression, just under the body`;
+    detail = `Workable, but closer to the crazing edge than the ${targetBand[0]}-${targetBand[1]} target band. Delayed crazing from moisture expansion is the risk — keep a test tile for weeks, not days.`;
+  } else {
+    status = 'high-compression';
+    headline = `glaze ${expansion} sits ${compressionPct}% below body ${fmtRange(range)} → heavy compression → shivering direction`;
+    detail = `Target band is ${targetBand[0]}-${targetBand[1]}. Raise expansion (more KNaO, less SiO₂/B₂O₃) — but note shivering needs a bigger mismatch than crazing does, so a gap alone isn't proof. Check the actual symptom: shivering shows at rims, edges and hole margins, the convex features.`;
+  }
+
+  return { status, headline, detail, bodyMid, gap, compressionPct, targetBand, confidence };
+}
+
+const fmtRange = ([lo, hi]) => (lo === hi ? String(lo) : `${lo}-${hi}`);
+
+/**
+ * Lint a recipe for problems the unity formula structurally cannot see.
+ *
+ * The UMF is invariant to a whole class of real faults: it does not care
+ * whether kaolin is raw or calcined, whether a material appears twice, how much
+ * total gas the batch gives off, or WHEN that gas arrives relative to the melt
+ * sealing. Every check here is something you could not find by reading the UMF,
+ * however carefully.
+ *
+ * @param {Array<{material: string, amount: number, additive?: boolean}>} recipe
+ * @param {Map} materialIndex  from indexMaterials()
+ * @returns {Array<{level: 'warn'|'note', code: string, message: string, fix?: string}>}
+ */
+export function lintRecipe(recipe, materialIndex) {
+  const findings = [];
+  const lines = recipe.filter(l => (Number(l.amount) || 0) > 0);
+
+  let baseGrams = 0, additionGrams = 0;
+  for (const l of lines) {
+    const a = Number(l.amount) || 0;
+    if (l.additive) additionGrams += a; else baseGrams += a;
+  }
+
+  // --- duplicate lines ------------------------------------------------------
+  // Layering corrections onto a recipe over time is how a glaze ends up with two
+  // silica lines and two frit lines. The UMF sums them and looks perfectly fine.
+  const seen = new Map();
+  for (const l of lines) {
+    const key = l.material + ' ' + (l.additive ? '1' : '0');
+    const cur = seen.get(key) || { material: l.material, additive: !!l.additive, count: 0, total: 0 };
+    cur.count += 1;
+    cur.total += Number(l.amount) || 0;
+    seen.set(key, cur);
+  }
+  for (const d of seen.values()) {
+    if (d.count > 1) {
+      findings.push({
+        level: 'warn',
+        code: 'duplicate-line',
+        message: `${d.material} appears ${d.count}× (totalling ${round(d.total, 2)} g${d.additive ? ', as an addition' : ''}).`,
+        fix: `Merge into one ${round(d.total, 2)} g line. The chemistry is unchanged; the recipe becomes readable and stops accumulating further corrections.`,
+      });
+    }
+  }
+
+  // --- raw vs calcined clay -------------------------------------------------
+  // The single sharpest example of a UMF blind spot: raw and calcined kaolin are
+  // chemically identical once fired, so the unity formula is invariant to the
+  // split — but the split decides whether the raw layer cracks on drying and
+  // crawls.
+  let rawClay = 0, calcinedClay = 0, rawClayLoi = 0;
+  const rawClayNames = [];
+  for (const l of lines) {
+    if (l.additive) continue;
+    const mat = materialIndex.get(l.material);
+    const tags = mat?.tags || [];
+    if (!tags.includes('clay')) continue;
+    const a = Number(l.amount) || 0;
+    if (tags.includes('calcined')) calcinedClay += a;
+    else { rawClay += a; rawClayLoi += a * ((mat.loi || 0) / 100); rawClayNames.push(l.material); }
+  }
+  const rawClayPct = baseGrams ? round((rawClay / baseGrams) * 100, 1) : 0;
+  if (rawClay > 0 && rawClayPct > 20) {
+    if (calcinedClay === 0) {
+      // Split so ~60% of the FIRED clay contribution stays raw — enough plasticity
+      // for suspension and green strength, without the full drying shrinkage.
+      const firedClay = rawClay - rawClayLoi;
+      const avgLoiFrac = rawClay ? rawClayLoi / rawClay : 0;
+      const rawPart = round((firedClay * 0.6) / (1 - avgLoiFrac), 1);
+      const calcPart = round((firedClay * 0.4) / 0.995, 1);
+      findings.push({
+        level: 'warn',
+        code: 'raw-clay-load',
+        message: `Raw plastic clay (${rawClayNames.join(', ')}) is ${rawClayPct}% of the base with no calcined counterpart to balance it. The UMF cannot see this — it reads raw and calcined as the same oxides.`,
+        fix: `Split roughly 60:40 by fired contribution — about ${rawPart} g raw / ${calcPart} g calcined — to cut drying shrinkage and crawling risk. This also drops batch LOI. Calcine it yourself on a bisque firing (cone 04 is plenty; a kitchen oven is not — dehydroxylation needs 450-600 °C) rather than introducing a new supplier variable. Match the material: calcined kaolin for kaolin, roasted Alberta Slip for Alberta Slip.`,
+      });
+    } else {
+      findings.push({
+        level: 'note',
+        code: 'raw-clay-load',
+        message: `Raw plastic clay is ${rawClayPct}% of the base, balanced by ${round(calcinedClay, 1)} g calcined.`,
+        fix: 'Reasonable. If it still crawls, shift more of the clay to calcined — 50:50 is usually better than fully calcined, which loses the suspension you need.',
+      });
+    }
+  }
+
+  // --- non-plastic colorant overload ---------------------------------------
+  // The opposite crawling case from the familiar one, and the one people miss:
+  // too LITTLE clay bond because a heavy non-plastic colorant load has diluted it.
+  let nonPlastic = 0;
+  for (const l of lines) {
+    const mat = materialIndex.get(l.material);
+    if ((mat?.tags || []).includes('non-plastic')) nonPlastic += Number(l.amount) || 0;
+  }
+  const nonPlasticPct = baseGrams ? round((nonPlastic / baseGrams) * 100, 1) : 0;
+  const dryLayerFix = 'If it crawls, that is a DRIED-LAYER failure, not a melt failure: iron oxide is a filler with high water demand, so the unfired layer has almost no clay bond, cracks on drying and pulls back. Add CMC and apply thinner before touching the melt chemistry.';
+  if (nonPlasticPct >= 15) {
+    findings.push({
+      level: 'warn',
+      code: 'non-plastic-load',
+      message: `Non-plastic colorant loading is ${nonPlasticPct}% of the base — past the point where the raw layer reliably holds together.`,
+      fix: `${dryLayerFix} For an iron red, 11-14% is the target band; 20% overshoots it and crawls for this reason rather than for any chemistry reason.`,
+    });
+  } else if (nonPlasticPct >= 10) {
+    findings.push({
+      level: 'note',
+      code: 'non-plastic-load',
+      message: `Non-plastic colorant loading is ${nonPlasticPct}% of the base — workable, but at the top of the range.`,
+      fix: dryLayerFix,
+    });
+  }
+
+  // --- what each line actually delivers, fired ------------------------------
+  // Derive this the same way analyzeRecipe does — from the oxide analysis, not
+  // the declared `loi` field — so the LOI reported here matches the LOI in the
+  // main report. (The two differ when a material's oxides don't sum to
+  // 100 − loi, which is normal for nominal analyses.)
+  let batchGrams = 0, firedTotal = 0;
+  const firedByLine = new Map();
+  for (const l of lines) {
+    const a = Number(l.amount) || 0;
+    batchGrams += a;
+    const mat = materialIndex.get(l.material);
+    if (!mat) continue;
+    let fired = 0;
+    for (const pct of Object.values(mat.oxides || {})) fired += a * (pct / 100);
+    firedTotal += fired;
+    firedByLine.set(l, fired);
+  }
+
+  // --- LOI total and, more importantly, its timing --------------------------
+  // Per-material gas attribution uses the declared `loi`, since that is what
+  // actually leaves as gas at a known temperature.
+  const lateGas = [];
+  for (const l of lines) {
+    const mat = materialIndex.get(l.material);
+    if (!mat) continue;
+    const contributed = (Number(l.amount) || 0) * ((mat.loi || 0) / 100);
+    const win = mat.gasWindowC;
+    if (win && win[1] >= 1000 && contributed >= 0.15) {
+      lateGas.push({ material: l.material, window: win, grams: round(contributed, 2) });
+    }
+  }
+  const loiPct = batchGrams ? round(((batchGrams - firedTotal) / batchGrams) * 100, 2) : 0;
+  if (loiPct >= 15) {
+    findings.push({
+      level: 'warn',
+      code: 'loi-total',
+      message: `Batch LOI is ${loiPct}% — a lot of gas to get out through a sealing melt.`,
+      fix: 'Swap carbonates for their fritted or already-decomposed equivalents where you can: wollastonite for whiting (zero LOI, same CaO), calcined for raw clay, a frit for Gerstley Borate.',
+    });
+  } else if (loiPct >= 10) {
+    findings.push({
+      level: 'note',
+      code: 'loi-total',
+      message: `Batch LOI is ${loiPct}%.`,
+      fix: 'Not alarming on its own, but if you are chasing pinholes or blisters this is where the gas is coming from.',
+    });
+  }
+  for (const g of lateGas) {
+    findings.push({
+      level: 'warn',
+      code: 'late-gas',
+      message: `${g.material} gasses at ${g.window[0]}-${g.window[1]} °C, contributing ${g.grams} g — that is arriving as the melt seals, not before it.`,
+      fix: 'Total LOI is the wrong number to look at here; timing is the problem. Either substitute a material whose gas is out by ~900 °C, or hold below the sealing point to let it clear.',
+    });
+  }
+
+  // --- materials earning nothing -------------------------------------------
+  for (const [l, fired] of firedByLine) {
+    const share = firedTotal ? (fired / firedTotal) * 100 : 0;
+    const mat = materialIndex.get(l.material);
+    const loi = mat?.loi || 0;
+    if (loi >= 20 && share < 2) {
+      findings.push({
+        level: 'warn',
+        code: 'gassing-for-nothing',
+        message: `${l.material} contributes ${round(share, 2)}% of the fired oxides but is ${loi}% LOI — it is gassing for almost no chemistry.`,
+        fix: 'Drop it and source the oxide from something already fired, or raise it to where it actually does something.',
+      });
+    } else if (share < 0.5) {
+      findings.push({
+        level: 'note',
+        code: 'negligible-material',
+        message: `${l.material} contributes ${round(share, 2)}% of the fired oxides.`,
+        fix: 'Below the noise floor of the nominal analyses themselves. Dropping it simplifies the recipe without measurably changing it.',
+      });
+    }
+  }
+
+  // --- additions vs base ----------------------------------------------------
+  if (additionGrams > 0) {
+    const addPct = baseGrams ? round((additionGrams / baseGrams) * 100, 1) : 0;
+    findings.push({
+      level: 'note',
+      code: 'additions-present',
+      message: `${round(additionGrams, 2)} g of additions on a ${round(baseGrams, 2)} g base (${addPct}%).`,
+      fix: 'Read fit and melt on the BASE. Colorants, opacifiers, tin and SiC are passengers in the unity formula — they shift the numbers without being what makes the glaze melt or fit.',
+    });
+  }
+
+  // --- unresolved materials -------------------------------------------------
+  const unknown = [...new Set(lines.filter(l => !materialIndex.get(l.material)).map(l => l.material))];
+  if (unknown.length) {
+    findings.push({
+      level: 'warn',
+      code: 'unknown-material',
+      message: `Not in the materials database: ${unknown.join(', ')}.`,
+      fix: 'Every number above is computed WITHOUT these. Say so rather than reporting a partial analysis as if it were complete.',
+    });
+  }
+
+  return findings;
+}
+
+/**
  * Order oxides the way potters expect to read them (fluxes, then stabilisers,
  * boron, glass-formers, then the rest), for display.
  */

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "description": "Clay-body thermal-expansion figures, for checking glaze fit. Every entry carries its PROVENANCE, because most manufacturers publish nothing: `confidence: \"published\"` means the maker states a figure, `\"estimated\"` means nobody publishes one and the range here is inference from the body's makeup. An estimated body is not a number to design against — it is a prompt to anchor empirically against a glaze already known to fit it. Prefer 'I don't know, fire the anchor glaze' over a confident invented figure.",
+    "units": "The engine's expansion output is a relative additive index, not a dilatometer COE, but it lands in the same numeric range as published body COE figures quoted in ×10⁻⁶/°C. Comparing the two is only meaningful when ANCHORED: take a glaze with known empirical fit on that body, note the gap between its computed number and the body figure, and read every other glaze against that same gap. Do not treat a raw glaze-vs-body difference as a physical stress prediction.",
+    "fitRule": "A glaze slightly BELOW the body sits in compression, which is the strong, desirable direction — roughly 3-8% below the body figure is the usual target. Glaze above body = tension = crazing. Glaze far below body = too much compression = shivering, which needs a bigger mismatch than crazing does because glazes tolerate compression far better than tension.",
+    "source": "Manufacturer spec sheets where they exist; otherwise inference, marked as such.",
+    "version": "0.1.0"
+  },
+  "bodies": {
+    "laguna-frost": {
+      "label": "Laguna Frost (WC-437)",
+      "maker": "Laguna Clay",
+      "cone": "5-6",
+      "coe": 6.99,
+      "coeRange": [6.99, 7.14],
+      "confidence": "published",
+      "provenance": "Laguna's spec sheet lists 6.99 ×10⁻⁶; their store page says 7.14. Both are the maker's own figures — the spread is the maker's, not ours, so treat 6.99-7.14 as the band rather than picking one.",
+      "notes": "White cone 5-6 throwing body. The best-documented body here, which makes it the natural anchor: a glaze with known fit on Frost calibrates the engine's index for every other glaze you read."
+    },
+    "standard-630": {
+      "label": "Standard 630 (Brooklyn Red / dark stoneware)",
+      "maker": "Standard Ceramic Supply",
+      "cone": "6",
+      "coe": null,
+      "coeRange": [5.5, 6.5],
+      "confidence": "estimated",
+      "provenance": "Standard publishes no expansion figure for 630. The range here is inference from the body's makeup — fireclay with added mullite, which runs empirically low — and must not be quoted as a measurement.",
+      "notes": "Dense vitrifying body. Mullite content raises craze resistance in ways a single COE number does not capture, so a glaze can survive on 630 that the arithmetic says should craze. Anchor empirically: fire a known glaze straight onto it before designing to a number. Not a saggar body — see standard-420."
+    },
+    "standard-420": {
+      "label": "Standard 420 (grogged sculpture body)",
+      "maker": "Standard Ceramic Supply",
+      "cone": "2-6",
+      "coe": null,
+      "coeRange": null,
+      "confidence": "unpublished",
+      "provenance": "No published expansion figure, and no useful estimate either — a heavily grogged body's thermal behaviour is dominated by the grog's crack-arresting structure rather than by bulk expansion, so a single COE would mislead more than it informs.",
+      "notes": "Standard's most heavily grogged sculpture body: ~8% shrinkage at cone 6 against 12%+ for a fine throwing body, ~8% absorption at cone 2. The right choice for saggar duty, where the vessel WANTS to be underfired and porous — grog arrests crack propagation and opens the structure against thermal gradients. Don't optimise a saggar for low expansion; use the groggiest dark stoneware available and treat it as sacrificial."
+    }
+  }
+}
