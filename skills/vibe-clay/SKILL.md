@@ -3,7 +3,7 @@ name: vibe-clay
 description: Glaze chemistry for potters, with computed numbers. Computes the UMF/Seger unity formula, oxide weight-%, SiO2:Al2O3, SiB:Al, R2O:RO, KNaO, a relative thermal-expansion estimate, LOI and batch cost from a ceramic glaze recipe; line-blends two glazes into N points; flags cone 6 / cone 10 limit ranges; and reads/writes Insight-Live XML exports. Use when the user asks about a glaze recipe or its chemistry, ceramic materials (feldspar, frits, kaolin, silica, whiting, Gerstley Borate…), crazing, shivering, durability, matte vs glossy, colorants in oxidation vs reduction, substituting one material for another, or wants a recipe drafted, scaled, blended, or converted to or from Insight-Live.
 compatibility: Requires Node.js 18+ to run the bundled chemistry engine. No network access needed — everything computes locally.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   source: "https://github.com/RolynTrotter/vibe-clay"
 ---
 
@@ -18,7 +18,9 @@ about the chemistry.
 ```
 tools/analyze.mjs           the CLI — everything runs through it
 js/chemistry.js             the engine (UMF, ratios, expansion, LOI, blends)
-js/import.js                Insight-Live XML serialisation
+js/import.js                Insight-Live XML parse + serialise (browser and Node)
+js/paste-import.js          free-text recipe -> data model
+js/limits.js                firing-target limit checks (shared with the CLI)
 data/materials.json         ~30 materials, nominal Digitalfire-style analyses
 data/glaze-limits.json      typical ranges: cone6-glossy, cone10-glossy
 references/glaze-qa.md              interpreting numbers, fault diagnosis, reduction vs oxidation
@@ -69,11 +71,31 @@ Material names resolve through an alias system, so Insight-Live spellings
 is printed as `⚠ unmatched` — say so rather than quietly analysing a partial
 recipe.
 
+**When the user pastes a recipe as plain text**, don't hand-transcribe it into
+JSON. Run it through the parser, which handles the formats recipes actually
+arrive in and tells you what it couldn't use:
+
+```js
+import { parseRecipeText } from './js/paste-import.js';
+const { name, lines, unmatched, skipped } = parseRecipeText(pasted, db);
+```
+
+Trailing or leading amounts, dot leaders, tabs and colons all work; an
+"Additions"/"Colorants" heading or a leading `+` marks colorants; firing notes
+("fire to cone 6") land in `skipped` instead of becoming a material. Report
+`unmatched` and `skipped` to the user — both mean the analysis isn't the whole
+recipe.
+
 ## Output
 
 UMF (fluxes normalised to 1.0) with oxide weight-%, then `Si:Al`, `SiB:Al`,
 `R2O:RO`, `KNaO`, relative expansion, LOI, and — with `--target` — every value
 outside the typical range for that firing. Report the actual numbers back.
+
+A UMF cell printed as `—` means **undefined, not zero**: the recipe has no
+fluxes, so there is no unity to normalise against (a slip, an engobe, or a
+half-entered recipe). Weight-% is still valid there. Never read a `—` as "none
+of this oxide" — check the weight-% column before saying anything about it.
 
 ## Then read the right reference
 
@@ -94,7 +116,8 @@ Load one when the task calls for it, not up front.
   diagnosing craze vs shiver — never present it as a fired COE or dilatometer
   value.
 - Limit ranges are heuristics. Outside them isn't "wrong", it's a prompt to
-  think.
+  think. If the output says some values weren't computable, say so — a partial
+  check is not a pass.
 - Nothing here writes to Insight-Live. XML output is for the user to paste in;
   don't say a recipe was saved to their account.
 - Test tiles beat arithmetic. The chemistry narrows the search; it doesn't

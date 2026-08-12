@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # SKILL.md promises Node 18+, so test the floor as well as current.
+      matrix:
+        node: ['18', '20', '22']
+    name: test (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No dependencies to install — the engine is dependency-free by design and
+      # the tests run on node's built-in runner. The test glob is expanded by the
+      # shell, not by node: `node --test` only learned to expand patterns itself
+      # in Node 22, and this has to work on the floor version too.
+      - run: npm test
+      # The version-sync check isn't repeated here — the "Skill zip" workflow
+      # runs build-skill.mjs on every PR, which enforces it.

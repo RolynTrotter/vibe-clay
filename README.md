@@ -1,6 +1,6 @@
 # vibe-clay 🏺
 
-**v1.0.0** · Phone-friendly glaze tools for a hobbyist potter — a companion to
+**v1.1.0** · Phone-friendly glaze tools for a hobbyist potter — a companion to
 [Insight-Live](https://insight-live.com), hosted on GitHub Pages, no backend
 required.
 
@@ -34,14 +34,34 @@ data path opens up.
   with a **Load** button that drops any point into the recipe builder; on the CLI
   it's `--blend N`.
 - **Mobile-first UI** (`index.html`) — recipe builder + live analysis, blue
-  theme, dark-mode aware, works offline once loaded.
+  theme, dark-mode aware. **Installable**: a web manifest and service worker mean
+  it can be added to a phone home screen and used in a studio with no signal.
+- **Your work is remembered** (`js/store.js`) — the imported library, the recipe
+  in the builder, and the chosen firing target survive closing the tab. It's all
+  in the browser's local storage; nothing is uploaded, and there's no account. If
+  a browser blocks storage (private mode) the app says so rather than quietly
+  losing a recipe.
+- **Paste a recipe** (`js/paste-import.js`) — copy a recipe out of Insight-Live,
+  a book or a forum post, paste it in, and it becomes an editable recipe.
+  Understands trailing amounts (`Custer Feldspar 40`), leading amounts, dot
+  leaders, tabs and colons; an "Additions"/"Colorants" heading or a leading `+`
+  marks colorants. Firing notes ("fire to cone 6") are recognised as prose and
+  skipped instead of becoming a material called "fire to cone". Whatever it
+  ignored or couldn't match is reported back, never silently dropped.
+- **Firing-target check** (`js/limits.js`) — pick cone 6 or cone 10 and every UMF
+  value and ratio outside the typical range for a functional glossy glaze is
+  flagged, with the range alongside. Heuristics, not rules: outside the range
+  isn't wrong, it's a prompt to think about why.
 - **Materials database** (`data/materials.json`) — ~30 common ceramic materials
   with nominal Digitalfire-style oxide analyses. Extensible.
-- **Insight-Live import** — export your recipe library from Insight-Live (XML)
-  and open it here: every recipe, with chemistry, on your phone. Material names
-  are resolved via an alias system (`Ferro Frit 3134` → `Frit 3134`, `EP Kaolin`
-  → `Kaolin (EPK)`, …). Parsing is 100% on-device; nothing is uploaded. Verified
-  against a real 11-recipe export. Recipes also round-trip as JSON.
+- **Insight-Live import _and_ export** — export your recipe library from
+  Insight-Live (XML) and open it here: every recipe, with chemistry, on your
+  phone. Material names are resolved via an alias system (`Ferro Frit 3134` →
+  `Frit 3134`, `EP Kaolin` → `Kaolin (EPK)`, …). Parsing is 100% on-device;
+  nothing is uploaded. Verified against a real 11-recipe export. Going the other
+  way, any recipe (or the whole library) exports back to Insight-Live-shaped XML
+  to copy or download, preserving the `id`, share `key` and original material
+  names so it lands as the same recipe. Recipes also round-trip as JSON.
 - **Claude skills** (`skills/`) — so Claude can help effectively:
   - `insight-live-navigator` — navigating Insight-Live/Digitalfire, the XML
     schema and data model.
@@ -70,6 +90,16 @@ has no open public API yet, uses cookie/session login, and CORS blocks a static
 browser app from calling it. Full analysis and the options (official API,
 serverless proxy, manual import/export) are in
 [`docs/api-integration-plan.md`](docs/api-integration-plan.md).
+
+## Tests
+
+```bash
+npm test        # 60 tests, no dependencies — node's built-in runner
+```
+
+Covers the chemistry engine (unity sums to 1.0, scale invariance, LOI,
+blends), the paste parser, the limit checks, and XML round-tripping. CI runs
+them on every push and pull request (`.github/workflows/test.yml`).
 
 ## Run locally
 
@@ -103,7 +133,7 @@ Claude can compute real UMF numbers in an ordinary chat — no repo, no terminal
 (`vibe-clay-<version>.zip`), or build it yourself:
 
 ```bash
-npm run build:skill      # → dist/vibe-clay-1.0.0.zip
+npm run build:skill      # → dist/vibe-clay-1.1.0.zip
 npm run test:skill       # zip shape + frontmatter + engine, from an unzipped copy
 ```
 
@@ -160,7 +190,10 @@ repo root to GitHub Pages. (Enable Pages → "GitHub Actions" in repo settings.)
 
 - [x] Recipe import (Insight-Live XML export → data model)
 - [x] Line-blend tool (two glazes → N points, UMF + analysis each)
+- [x] Glaze limit/typical-range warnings (crazing, durability)
+- [x] Paste-import a recipe from text
+- [x] Export back to Insight-Live XML
+- [x] Offline / installable, with work saved between visits
 - [ ] Firing-schedule editor + graph
 - [ ] More materials + pull real analyses from Digitalfire (tighten nominal values)
 - [ ] Sync adapter once a data path (official API / proxy) is chosen
-- [ ] Glaze limit/typical-range warnings (crazing, durability)

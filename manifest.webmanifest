@@ -1,0 +1,25 @@
+{
+  "name": "vibe-clay — glaze tools",
+  "short_name": "vibe-clay",
+  "description": "Offline glaze chemistry: UMF/Seger unity formula, line blends, and Insight-Live import/export.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f8ff",
+  "theme_color": "#0b2545",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

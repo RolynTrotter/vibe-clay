@@ -34,8 +34,14 @@ Helps Claude work effectively with Insight-Live (insight-live.com), Digitalfire
 
 ## Getting recipe data (in order of preference)
 
-1. **Ask the user to paste** the recipe (text) or the recipe page HTML. Parse it
-   into the vibe-clay data model (see below). Zero risk, works today.
+1. **Ask the user to paste** the recipe text. `js/paste-import.js`
+   (`parseRecipeText(text, db)`) turns free-form recipe text into the data model:
+   trailing or leading amounts, dot leaders, tabs, colons; an
+   "Additions"/"Colorants" heading or a leading `+` marks colorants; firing notes
+   like "fire to cone 6" are detected as prose and returned in `.skipped` rather
+   than becoming a material. Unresolved names come back in `.unmatched` — always
+   report both to the user instead of analysing a partial recipe. Zero risk,
+   works today.
 2. **Screenshots** of a recipe — read the batch (material + amount to 100),
    additives/colorants, firing schedule, notes.
 3. **Authenticated automation** only if the user has explicitly set
@@ -71,8 +77,17 @@ Insight-Live's **Export** produces XML. Confirmed shape:
 
 `js/import.js` → `parseInsightLiveXML(xml, db)` parses this into our model and
 resolves material names via `buildResolver()` (aliases + normalised matching).
-`toInsightLiveXML(recipes)` serialises back. Unmatched names are kept verbatim
-and flagged (`recipe.unmatched`), so nothing is silently dropped.
+It works in the browser (DOMParser) **and** in Node (a reader for this specific
+flat format), so the app, the CLI and the tests all share one definition of the
+schema. `toInsightLiveXML(recipes)` serialises back. Unmatched names are kept
+verbatim and flagged (`recipe.unmatched`), so nothing is silently dropped.
+
+**The round trip is real and tested.** Export preserves `id`, `key`, `codenum`,
+`date`, `notes` and — via `rawMaterial` — Insight-Live's own material spellings,
+so a recipe that came out of Insight-Live goes back in as the same recipe. The
+app exposes this as "Export XML" / "Download .xml", and the whole library as
+"Download library XML". That is a genuine manual write path: the user imports the
+file into Insight-Live themselves.
 
 ## vibe-clay recipe data model
 
@@ -132,6 +147,8 @@ add/override entries. When adding a material, include `oxides` (wt%) and `loi`.
 
 ## Guardrails
 
-- Don't claim a recipe is synced/saved to Insight-Live — nothing writes there yet.
+- Don't claim a recipe is synced/saved to Insight-Live — nothing writes there
+  automatically. The app can hand the user an XML file that Insight-Live will
+  import, but *they* do the importing. Say it that way.
 - Flag chemistry as an estimate when the material analyses are the nominal ones.
 - Respect Insight-Live's ToS before any automated login/scraping.

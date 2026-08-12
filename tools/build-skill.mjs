@@ -64,6 +64,8 @@ mkdirSync(join(OUT, 'references'), { recursive: true });
 const FILES = [
   'js/chemistry.js',
   'js/import.js',
+  'js/limits.js',
+  'js/paste-import.js',
   'data/materials.json',
   'data/glaze-limits.json',
   'tools/analyze.mjs',
