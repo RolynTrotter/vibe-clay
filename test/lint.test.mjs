@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { analyzeRecipe, lintRecipe, fitToBody, indexMaterials } from '../js/chemistry.js';
+import { analyzeRecipe, lintRecipe, fitToBody, indexMaterials, gasTiming, MELT_SEAL_C, MELT_ONSET_C } from '../js/chemistry.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const db = JSON.parse(readFileSync(resolve(ROOT, 'data/materials.json'), 'utf8'));
@@ -185,4 +185,83 @@ test('every body carries provenance, and estimates say so', () => {
       assert.equal(fitToBody(6.4, b).confidence, b.confidence, `${key} must carry confidence through to the fit`);
     }
   }
+});
+
+// --- gas timing -------------------------------------------------------------
+// The late-gas rule used to be a single threshold (window end >= 1000 °C).
+// gasTiming() splits that into four phases with an ordinal severity, so a
+// solver can constrain on it. These pin the boundaries, because the refactor
+// silently dropped talc's finding the first time round.
+
+test('gasTiming classifies each phase against the sealing melt', () => {
+  assert.deepEqual(gasTiming([1100, 1300]), { phase: 'after-seal', severity: 3 });
+  assert.deepEqual(gasTiming([900, 1200]), { phase: 'spans-seal', severity: 2 });
+  assert.deepEqual(gasTiming([900, 1000]), { phase: 'at-onset', severity: 1 });
+  assert.deepEqual(gasTiming([600, 900]), { phase: 'before-seal', severity: 0 });
+  assert.deepEqual(gasTiming(null), { phase: 'unknown', severity: 0 });
+});
+
+test('a window ending exactly at the onset is at-onset, not before-seal', () => {
+  // Talc is [900, 1000] — exactly on the boundary, and the one material in the
+  // database that sits there. `hi > MELT_ONSET_C` would drop it entirely.
+  assert.equal(gasTiming([900, MELT_ONSET_C]).phase, 'at-onset');
+  assert.equal(gasTiming([900, MELT_ONSET_C - 1]).phase, 'before-seal');
+});
+
+test('a window starting exactly at the seal is after-seal', () => {
+  assert.equal(gasTiming([MELT_SEAL_C, 1300]).phase, 'after-seal');
+  assert.equal(gasTiming([MELT_SEAL_C - 1, 1300]).phase, 'spans-seal');
+});
+
+test('talc still raises a late-gas finding', () => {
+  // Regression guard: talc's window ends exactly at MELT_ONSET_C, and the
+  // pre-gasTiming rule (win[1] >= 1000) warned on it. It must keep warning.
+  const findings = lint([
+    { material: 'Talc', amount: 12 },
+    { material: 'Custer Feldspar (Potash)', amount: 40 },
+    { material: 'Silica (Quartz)', amount: 33 },
+    { material: 'Kaolin (Calcined)', amount: 15 },
+  ]);
+  const f = byCode(findings, 'late-gas');
+  assert.ok(f, 'talc gasses at 900-1000 °C, right as the melt starts to close');
+  assert.equal(f.data.phase, 'at-onset');
+  assert.equal(f.data.material, 'Talc');
+});
+
+test('late-gas severity is ordinal and carried as structured data', () => {
+  // The whole point of the refactor: an optimiser must not have to regex prose
+  // to find out how much gas lands after the seal, or how bad it is.
+  const findings = lint([
+    { material: 'Frit 3134 (Ferro)', amount: 40 },
+    { material: 'Silica (Quartz)', amount: 34 },
+    { material: 'Strontium Carbonate', amount: 20 },
+    { material: 'Kaolin (Calcined)', amount: 6 },
+  ]);
+  const f = byCode(findings, 'late-gas');
+  assert.equal(f.severity, 3);
+  assert.equal(f.level, 'warn');
+  assert.deepEqual(f.data.windowC, [1100, 1300]);
+  assert.equal(f.data.meltSealC, MELT_SEAL_C);
+  assert.ok(f.data.gasGrams > 0);
+});
+
+test('an at-onset finding is a note, an after-seal one is a warn', () => {
+  // Talc out before anything closes vs strontium arriving through a skin: the
+  // old rule gave both the same level and the same sentence.
+  const talc = byCode(lint([
+    { material: 'Talc', amount: 12 },
+    { material: 'Custer Feldspar (Potash)', amount: 40 },
+    { material: 'Silica (Quartz)', amount: 33 },
+    { material: 'Kaolin (Calcined)', amount: 15 },
+  ]), 'late-gas');
+  const strontium = byCode(lint([
+    { material: 'Frit 3134 (Ferro)', amount: 40 },
+    { material: 'Silica (Quartz)', amount: 34 },
+    { material: 'Strontium Carbonate', amount: 20 },
+    { material: 'Kaolin (Calcined)', amount: 6 },
+  ]), 'late-gas');
+  assert.equal(talc.level, 'note');
+  assert.equal(strontium.level, 'warn');
+  assert.notEqual(talc.message, strontium.message);
+  assert.match(strontium.message, /AFTER the melt seals/);
 });

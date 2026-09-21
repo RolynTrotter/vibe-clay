@@ -3,7 +3,7 @@ name: vibe-clay
 description: Glaze chemistry for potters, with computed numbers. Computes the UMF/Seger unity formula, oxide weight-%, SiO2:Al2O3, SiB:Al, R2O:RO, KNaO, a relative thermal-expansion estimate, LOI and batch cost from a ceramic glaze recipe; line-blends two glazes into N points; checks glaze fit against a named clay body; lints for faults the unity formula cannot see (raw vs calcined clay, duplicate lines, late-arriving gas); flags limit ranges for glossy, matte, iron-crystal and copper-red targets; and reads/writes Insight-Live XML exports. Use when the user asks about a glaze recipe or its chemistry, ceramic materials (feldspar, frits, kaolin, silica, whiting, Gerstley Borate…), crazing, shivering, durability, matte vs glossy, tenmoku/kaki/shino, copper red, colorants in oxidation vs reduction, substituting one material for another, or wants a recipe drafted, scaled, blended, or converted to or from Insight-Live.
 compatibility: Requires Node.js 18+ to run the bundled chemistry engine. No network access needed — everything computes locally.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   source: "https://github.com/RolynTrotter/vibe-clay"
 ---
 
@@ -17,11 +17,13 @@ about the chemistry.
 
 ```
 tools/analyze.mjs           the CLI — everything runs through it
+tools/solve.py              solves the limit bands as an LP (needs numpy + scipy)
 js/chemistry.js             the engine (UMF, ratios, expansion, LOI, blends)
 js/import.js                Insight-Live XML parse + serialise (browser and Node)
 js/paste-import.js          free-text recipe -> data model
 js/limits.js                firing-target limit checks (shared with the CLI)
 data/materials.json         ~40 materials, nominal Digitalfire-style analyses
+data/glazes.json            named recipe library — the studio's own glazes, by key
 data/glaze-limits.json      target ranges + the outlier families that break them
 data/bodies.json            clay-body expansion figures, each with its provenance
 references/glaze-qa.md              interpreting numbers, fault diagnosis, reduction vs oxidation
@@ -55,13 +57,59 @@ node tools/analyze.mjs library.xml --blend 5      # blends the first two recipes
 # fit against a clay body, plus the checks the UMF can't do
 node tools/analyze.mjs recipe.json --body laguna-frost --lint
 
-# what targets and bodies exist
+# what targets, bodies and named glazes exist
 node tools/analyze.mjs --list-targets
 node tools/analyze.mjs --list-bodies
+node tools/analyze.mjs --list-glazes
 
 # emit Insight-Live-importable XML (round-trip out)
 echo '<recipe JSON>' | node tools/analyze.mjs --xml
 ```
+
+## Print less by default
+
+The full UMF block is right for reading one recipe on its own. It is wrong when
+eight candidates are being weighed, and wrong when a script is consuming the
+numbers. **Reach for these before printing twenty lines per iteration:**
+
+```bash
+node tools/analyze.mjs a.json --brief --target cone6-glossy   # one line
+node tools/analyze.mjs a.json b.json c.json --compare         # one column each
+node tools/analyze.mjs new.json --vs g2926b                   # only what moved
+node tools/analyze.mjs a.json --json                          # machine-readable
+```
+
+`--vs` takes a file **or a key from the named glaze library**, so a derivative
+can be read against its parent without anyone retyping the parent. Nearly every
+recipe here is a derivative of an earlier one; showing twelve unchanged oxide
+rows buries the two that changed.
+
+## The named glaze library
+
+`data/glazes.json` holds the studio's own glazes by key, usable anywhere a
+recipe file is (`--vs g2926b`, `--anchor g2926b`, `analyze.mjs g2926b`).
+
+It ships **empty on purpose.** Do not populate it from memory or from a chat
+transcript — both drift. Export from Insight-Live and save each one:
+
+```bash
+VIBE_CLAY_PROVENANCE="Insight-Live export 2026-09" \
+  node tools/analyze.mjs export.xml --save g2926b
+```
+
+A glaze that has been fired on a body and observed not to craze or shiver gets
+`fitsBody: "<body key>"` added by hand. Those are the only glazes worth using as
+an `--anchor`.
+
+## --anchor: expansion as a distance, not a number
+
+```bash
+node tools/analyze.mjs candidate.json --anchor g2926b
+```
+
+The guardrail below says the expansion index is only meaningful relative to a
+glaze with known empirical fit. `--anchor` makes that the output instead of a
+caveat printed under an absolute. Report the Δ.
 
 Input is Insight-Live XML **or** app JSON, from a file or stdin — the CLI
 sniffs which. JSON shape:
@@ -122,6 +170,56 @@ against a glaze known to fit. Never quote an estimated figure as a measurement.
 calcined clay split (invisible to UMF, decides whether the glaze crawls),
 duplicate material lines, total LOI *and its timing* relative to the melt
 sealing, and materials gassing for no chemistry.
+
+## Solving, rather than searching
+
+**If the task is "find me a recipe that lands in these bands", do not search for
+it.** Every number this engine reports is a ratio of two linear functions of the
+amounts vector, so every band is a linear inequality and the feasible set is a
+convex polytope. Random restarts, hill-climbing and hand-tweaking are all the
+hard way round a problem the simplex solves exactly.
+
+```bash
+node tools/analyze.mjs --matrix > /tmp/m.json      # per-gram coefficients + bands
+python3 tools/solve.py --matrix /tmp/m.json \
+    --target cone6-copper-red \
+    --palette "Ferro Frit 3110,Ferro Frit 3249,Silica,Spodumene,Lithium Carbonate,EPK,Wollastonite,Bone Ash" \
+    --expansion 6.55 6.95 --max-loi 6 --no-late-gas \
+    --band MgO=0:0.18 --range --verify
+```
+
+What you get that a search cannot give:
+
+- **A margin, not a point.** `t*` is the fraction of every band's half-width held
+  clear simultaneously. Maximising it is the right objective here because the
+  binding uncertainty is nominal-vs-actual material analysis — a central recipe
+  survives a different bag of Custer; one sitting on a band edge does not.
+- **`--range`: exact min/max of each material** over the whole feasible set.
+  "Frit 3110 is always 28–44, strontium is never used" is a bound, not a tally.
+- **`--explain` on infeasible**: which bands are fighting. That is a proof about
+  the palette, not an inference from where a search kept landing.
+- **`--band` mid-process is free.** Adding a cap after seeing a first result is
+  a one-line re-solve, and the new `t*` says immediately what it cost.
+- **`--verify` round-trips the answer back through the engine**, so the solver
+  and the analyser have to agree on the same recipe.
+
+`--palette all` is cheap and `--range` will tell you what got excluded, so it is
+a reasonable starting point — but **read the recipe it hands back before you
+trust it.** It spans every non-colorant, non-opacifier material in the database,
+which is a wider net than any potter would actually cast, and the margin
+objective has no notion of whether a material belongs in this glaze. Narrow the
+palette once you have seen what it reaches for.
+
+Honest limits: it does not know whether the glaze will turn red; the material
+analyses are still nominal; the expansion model is still least reliable exactly
+where this studio works. A cap on the *number* of materials is a cardinality
+constraint (MILP) and is not implemented — though LP vertex solutions are
+already sparse.
+
+`python3 tools/solve.py --check-targets` feasibility-checks every shipped limit
+profile against the whole material database. A profile no recipe can satisfy is
+a bug in the data, not a hard glaze — `cone6-copper-red` was one, and had been
+flagging every recipe it was ever pointed at.
 
 ## Then read the right reference
 

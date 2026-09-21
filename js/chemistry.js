@@ -397,6 +397,34 @@ const fmtRange = ([lo, hi]) => (lo === hi ? String(lo) : `${lo}-${hi}`);
  * @param {Map} materialIndex  from indexMaterials()
  * @returns {Array<{level: 'warn'|'note', code: string, message: string, fix?: string}>}
  */
+// Where a cone 6 melt closes over. Gas arriving above MELT_SEAL_C has to force
+// its way through a glaze that is already a skin — that is the blistering /
+// bubbled-black failure, and total LOI cannot see it because the number is the
+// same whether the gas left at 600 °C or 1200 °C.
+export const MELT_SEAL_C = 1100;
+// Below this it is comfortably out before anything closes.
+export const MELT_ONSET_C = 1000;
+
+/**
+ * Classify a material's gas window against the sealing melt.
+ * Returns { phase, severity } — severity is ordinal (0 fine … 3 bad) so a
+ * caller (the optimiser, a UI) can weight or constrain on it without parsing
+ * prose.
+ */
+export function gasTiming(gasWindowC) {
+  if (!gasWindowC) return { phase: 'unknown', severity: 0 };
+  const [lo, hi] = gasWindowC;
+  if (lo >= MELT_SEAL_C) return { phase: 'after-seal', severity: 3 };
+  if (hi > MELT_SEAL_C) return { phase: 'spans-seal', severity: 2 };
+  // >= not >, deliberately: talc's window is [900, 1000], and the rule this
+  // replaced (win[1] >= 1000) warned on it. A window that ends exactly AT the
+  // onset is still gas arriving as the melt starts to close, and dropping that
+  // finding would be a silent regression on one of the materials this skill
+  // has actually flagged in anger.
+  if (hi >= MELT_ONSET_C) return { phase: 'at-onset', severity: 1 };
+  return { phase: 'before-seal', severity: 0 };
+}
+
 export function lintRecipe(recipe, materialIndex) {
   const findings = [];
   const lines = recipe.filter(l => (Number(l.amount) || 0) > 0);
@@ -523,8 +551,9 @@ export function lintRecipe(recipe, materialIndex) {
     if (!mat) continue;
     const contributed = (Number(l.amount) || 0) * ((mat.loi || 0) / 100);
     const win = mat.gasWindowC;
-    if (win && win[1] >= 1000 && contributed >= 0.15) {
-      lateGas.push({ material: l.material, window: win, grams: round(contributed, 2) });
+    const timing = gasTiming(win);
+    if (win && timing.severity >= 1 && contributed >= 0.15) {
+      lateGas.push({ material: l.material, window: win, grams: round(contributed, 2), ...timing });
     }
   }
   const loiPct = batchGrams ? round(((batchGrams - firedTotal) / batchGrams) * 100, 2) : 0;
@@ -544,11 +573,20 @@ export function lintRecipe(recipe, materialIndex) {
     });
   }
   for (const g of lateGas) {
+    const whenever = g.phase === 'after-seal'
+      ? `that is arriving entirely AFTER the melt seals (~${MELT_SEAL_C} °C), with nowhere to go but through the glaze surface`
+      : g.phase === 'spans-seal'
+        ? `part of that arrives after the melt seals (~${MELT_SEAL_C} °C)`
+        : 'that is arriving right as the melt starts to close';
     findings.push({
-      level: 'warn',
+      level: g.severity >= 2 ? 'warn' : 'note',
       code: 'late-gas',
-      message: `${g.material} gasses at ${g.window[0]}-${g.window[1]} °C, contributing ${g.grams} g — that is arriving as the melt seals, not before it.`,
-      fix: 'Total LOI is the wrong number to look at here; timing is the problem. Either substitute a material whose gas is out by ~900 °C, or hold below the sealing point to let it clear.',
+      // Structured alongside the prose: an optimiser or a UI should not have to
+      // regex the message to find out how much gas lands after the seal.
+      severity: g.severity,
+      data: { material: g.material, windowC: g.window, gasGrams: g.grams, phase: g.phase, meltSealC: MELT_SEAL_C },
+      message: `${g.material} gasses at ${g.window[0]}-${g.window[1]} °C, contributing ${g.grams} g — ${whenever}.`,
+      fix: 'Total LOI is the wrong number to look at here; timing is the problem. Either substitute a material whose gas is out by ~900 °C (wollastonite for whiting, a frit for a carbonate), or hold below the sealing point to let it clear.',
     });
   }
 

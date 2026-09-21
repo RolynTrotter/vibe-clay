@@ -1,0 +1,9 @@
+{
+  "_meta": {
+    "description": "Named recipe library — the glazes this studio actually works from, so a derivative can be read against its parent without anyone retyping the parent. Referable anywhere a recipe file is: `--vs g2926b`, `--anchor g2926b`, `node tools/analyze.mjs g2926b`.",
+    "populate": "Deliberately shipped almost empty. Do not transcribe recipes from memory or from a chat transcript — both drift. Populate from the authoritative source: export the recipes from Insight-Live and run `node tools/analyze.mjs export.xml --save <key>`, once per recipe. `provenance` is required and should name where the numbers came from.",
+    "anchorsNote": "A glaze marked `fitsBody: \"<body key>\"` is one the potter has fired on that body and observed NOT to craze or shiver. Those are the only glazes worth using with --anchor: the engine's expansion figure is a relative index, so it is only meaningful as a distance from a glaze with known real-world fit.",
+    "version": 1
+  },
+  "glazes": {}
+}

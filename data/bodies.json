@@ -36,6 +36,16 @@
       "confidence": "unpublished",
       "provenance": "No published expansion figure, and no useful estimate either — a heavily grogged body's thermal behaviour is dominated by the grog's crack-arresting structure rather than by bulk expansion, so a single COE would mislead more than it informs.",
       "notes": "Standard's most heavily grogged sculpture body: ~8% shrinkage at cone 6 against 12%+ for a fine throwing body, ~8% absorption at cone 2. The right choice for saggar duty, where the vessel WANTS to be underfired and porous — grog arrests crack propagation and opens the structure against thermal gradients. Don't optimise a saggar for low expansion; use the groggiest dark stoneware available and treat it as sacrificial."
+    },
+    "studio-reclaim": {
+      "label": "Studio reclaim (house mix)",
+      "maker": "none — studio blend",
+      "cone": "6",
+      "coe": null,
+      "coeRange": null,
+      "confidence": "unpublished",
+      "provenance": "A studio reclaim blend, described as mostly Laguna Frost with porcelain and white stoneware mixed in. Nobody publishes a figure for a reclaim bucket and its composition drifts every time it is topped up, so there is deliberately NO number here — inventing one would be worse than having none.",
+      "notes": "Use --anchor with a glaze you have fired on this body and seen not craze or shiver; that is the only honest way to read fit on a reclaim. And because the blend changes, a glaze that fit last year is not proof it fits this year: re-anchor whenever the bucket has turned over."
     }
   }
 }

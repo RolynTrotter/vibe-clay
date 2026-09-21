@@ -69,7 +69,9 @@ const FILES = [
   'data/materials.json',
   'data/glaze-limits.json',
   'data/bodies.json',
+  'data/glazes.json',
   'tools/analyze.mjs',
+  'tools/solve.py',
 ];
 for (const f of FILES) {
   mkdirSync(join(OUT, dirname(f)), { recursive: true });
