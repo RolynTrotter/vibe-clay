@@ -58,8 +58,9 @@
         "B2O3": [0.15, 0.2],
         "KNaO": [0.25, 0.35]
       },
-      "ratios": { "SiO2_Al2O3": [8, 10] },
+      "ratios": { "SiO2_Al2O3": [10.7, 15.0] },
       "notes": [
+        "\u26a0 RECONCILED, needs a second opinion before it is relied on: this profile carried Si:Al 8-10, which is arithmetically unreachable alongside SiO2 3.0-3.3 and Al2O3 0.22-0.28 \u2014 those two bands force Si:Al between 10.71 and 15.00. Nothing could ever satisfy the profile: --target cone6-copper-red always flagged, and the solver reports it infeasible against every palette including the whole material database. The ratio band is widened here to the range the oxide bands imply. If 8-10 was the trustworthy figure, then an oxide band is what needs moving instead. Check against Insight-Live.",
         "A glassy oxblood is properly cone 9-10 reduction; at cone 6 in an electric kiln the route is in-glaze reduction with silicon carbide, not atmosphere.",
         "High alumina keeps copper ionic and green — hence the tight low band.",
         "Excess boron fights the red and raises expansion.",

@@ -313,6 +313,49 @@ matters that these should be checked against a supplier/Digitalfire analysis.
 - Inclusion stains want a fast drop from peak; iron reds want a slow cool through
   1050–900 °C. Fire those in **separate loads**.
 
+## Corrections — things this skill got wrong once
+
+Each of these was asserted, challenged, and corrected in the middle of real
+studio work. They are written down so the correction survives the session.
+
+- **Strontium lowers expansion relative to calcium, mole for mole.** SrO's
+  expansion coefficient is below CaO's. The earlier claim to the contrary came
+  from *adding* strontium carbonate on top of a recipe rather than substituting
+  it equimolar for the calcium — that raises the total flux load and the
+  expansion with it, which is a batching artefact, not a property of strontium.
+  When you compare two fluxes, substitute; do not add.
+
+- **Silicon carbide: finer mesh needs MORE, not less.** 800 mesh wants
+  0.5–0.75%; 500 mesh 0.25–0.3%. The reverse was stated once and is wrong —
+  finer particles oxidise faster and more completely, so more of the charge is
+  spent before the melt can use it.
+
+- **…and those figures are for a first attempt, not a recovery.** After a firing
+  that came out black and bubbled from over-reduction (bulk metallic copper
+  rather than colloidal), the next step down is 0.125–0.25%, sieved to 80 mesh,
+  with black copper oxide in place of copper carbonate to remove one early
+  gassing source. Over-reduction and failure-to-strike look nothing alike: a
+  glaze that never struck is green or clear, one that went too far is black.
+
+- **Strontium carbonate gasses at 1100–1300 °C — after a cone 6 melt has
+  sealed.** It reads as a well-behaved low-expansion flux in the UMF and as an
+  ordinary LOI contributor in the batch total, and it is neither: the gas
+  arrives with nowhere to go but through the glaze surface. `--lint` now carries
+  an ordinal `severity` for this (see `gasTiming` in `js/chemistry.js`), so it
+  can be constrained rather than merely noticed.
+
+- **This engine's expansion figure and Insight-Live's can differ by ~0.6 on a
+  high-lithium glaze** (6.65 here vs 6.0 there on one lithium-phosphate base).
+  They converge as lithium comes down. Neither is a dilatometer. Use `--anchor`
+  and read the gap between two glazes computed the same way, and quote
+  Insight-Live when a single absolute number has to be written down.
+
+- **An inert opacifier moves the computed expansion.** The index is a
+  mole-fraction weighted average, so adding tin or zirconium — whose expansion
+  factors sit below a typical glaze's average — pulls the number down without
+  changing anything about the glass. That is arithmetic, not chemistry: judge
+  fit on the base recipe and treat opacifiers as additions.
+
 ## Related skills
 
 - `draft-recipe` — when the goal shifts from *answering* to *building/adjusting*

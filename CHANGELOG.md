@@ -5,6 +5,45 @@ packaged skill all ship under one number (`package.json` is the source of
 truth). Format loosely follows [Keep a Changelog](https://keepachangelog.com);
 versioning is [semver](https://semver.org).
 
+## [1.3.0] — 2026-09-21
+
+Compact output modes, a named glaze library, and an LP solver for the limit
+bands — plus one data bug that had been flagging every copper red it saw.
+
+### Fixed
+
+- **`cone6-copper-red` was arithmetically unsatisfiable.** The profile carried
+  `SiO2 [3.0, 3.3]` and `Al2O3 [0.22, 0.28]`, which force Si:Al into
+  `[10.71, 15.00]`, alongside a `SiO2_Al2O3` band of `[8, 10]`. No recipe could
+  ever satisfy it, so `--target cone6-copper-red` flagged everything it was
+  pointed at, correct recipes included. The ratio band is widened to the range
+  the oxide bands imply. **This is provisional** — if 8–10 was the trustworthy
+  figure, an oxide band is what needs moving instead. See the target's `notes`.
+- `--lint` now distinguishes *when* gas arrives rather than lumping everything
+  past 1000 °C together, so strontium carbonate (1100–1300, entirely after the
+  melt seals) no longer reads the same as talc (900–1000, out before anything
+  closes). Talc keeps its finding, as a `note` rather than a `warn`.
+
+### Added
+
+- `--brief`, `--compare`, `--json` and `--vs <ref>` — one line, one column per
+  recipe, structured output, and a diff against a baseline. The default output
+  is unchanged.
+- `data/glazes.json`, a named recipe library, with `--save`, `--list-glazes`,
+  and keys usable anywhere a recipe file is. Ships empty by design.
+- `--anchor <glaze>` — reports expansion as a distance from a glaze with known
+  empirical fit, which is the only way the index is meaningful.
+- `gasTiming()` and an ordinal `severity` (0–3) on `late-gas` findings, so gas
+  timing can be constrained rather than merely noticed.
+- `tools/analyze.mjs --matrix` and `tools/solve.py` — the limit bands solved as
+  a linear program instead of searched. Feasibility with `--explain`, a margin
+  `t*`, exact per-material `--range`, and `--verify` to round-trip the answer
+  back through the engine. Needs numpy and scipy; the JS side stays
+  dependency-free.
+- `studio-reclaim` in `data/bodies.json`, deliberately with no COE figure.
+- A **Corrections** section in the glaze-QA reference, recording six things
+  this skill asserted and had to walk back.
+
 ## [1.2.0] — 2026-08-12
 
 Acts on the Q&A corpus harvested from ~14 glaze conversations (#11): three
