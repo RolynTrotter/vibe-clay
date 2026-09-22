@@ -1,0 +1,114 @@
+name: release
+
+# Merging to main releases, if and only if the version changed. `package.json`
+# is the source of truth; this workflow reads it, tags it, and attaches the
+# skill zip. A merge that leaves the version alone republishes nothing, so
+# ordinary changes do not cut a release.
+#
+# This replaces the old routine of tagging main by hand. Under that scheme the
+# BUILD was automated and the TAG was not, which read as "the release is
+# automated" right up until someone merged a version bump and nothing shipped.
+# The version bump is now the whole trigger: bump it, merge it, done.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# A release is not safe to run twice at once: two jobs racing on the same tag
+# both see it absent, and the loser fails on create.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release on a version bump
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: the freshness check below reads tags, which a shallow
+      # checkout does not fetch.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Node 20, not the latest: the bundle claims to run on 18+, and 22+ would
+      # hide a missing "type": "module" by auto-detecting ES modules.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # --check fails unless package.json, SKILL.md, index.html and CHANGELOG.md
+      # all agree, so a half-done bump stops here rather than shipping a
+      # mislabelled zip. It is the same guard the old hand-tagged flow got from
+      # "tag must match package.json", moved earlier and made broader.
+      - name: Versions must agree across the four files
+        run: node tools/build-skill.mjs --check
+
+      - name: Read the version
+        id: v
+        run: |
+          version="$(jq -r .version package.json)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Has this version already been released?
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.v.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.v.outputs.tag }} exists; nothing to release."
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the zip
+        if: steps.check.outputs.fresh == 'true'
+        run: node tools/build-skill.mjs
+
+      - name: Check it's uploadable and the engine runs
+        if: steps.check.outputs.fresh == 'true'
+        run: node tools/test-skill.mjs
+
+      # Create when absent, upload when present.
+      #
+      # The freshness check above means the tag is normally new and `create`
+      # is the path taken. The upload branch is kept for the case that burned
+      # us before: the GitHub web UI gives you no way to create a tag WITHOUT
+      # creating a release alongside it, and a release left as a DRAFT is
+      # invisible to `git rev-parse` (no tag yet) while still making `gh
+      # release create` fail with "a release with the same tag name already
+      # exists". Without this branch that state is unrecoverable from CI.
+      - name: Publish the release
+        if: steps.check.outputs.fresh == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+          TAG: ${{ steps.v.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          notes="Download \`vibe-clay-${VERSION}.zip\` below and upload it in claude.ai under **Settings → Features → Skills** to do glaze chemistry in a regular chat. Needs code execution enabled.
+
+          Changes are in [CHANGELOG.md](https://github.com/${REPO}/blob/${TAG}/CHANGELOG.md)."
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists — attaching the zip to it"
+            gh release upload "$TAG" dist/vibe-clay-*.zip --clobber
+          else
+            echo "creating release $TAG"
+            gh release create "$TAG" dist/vibe-clay-*.zip \
+              --target "$GITHUB_SHA" \
+              --title "vibe-clay $TAG" \
+              --notes "$notes"
+          fi
+
+          # Whatever path we took, the asset must actually be on the release —
+          # the first attempt at this reported success paths that shipped nothing.
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          echo "assets on $TAG: ${assets:-<none>}"
+          case "$assets" in
+            *vibe-clay-*.zip) ;;
+            *) echo "::error::no vibe-clay zip attached to $TAG"; exit 1 ;;
+          esac
