@@ -3,7 +3,7 @@ name: vibe-clay
 description: Glaze chemistry for potters, with computed numbers. Computes the UMF/Seger unity formula, oxide weight-%, SiO2:Al2O3, SiB:Al, R2O:RO, KNaO, a relative thermal-expansion estimate, LOI and batch cost from a ceramic glaze recipe; line-blends two glazes into N points; checks glaze fit against a named clay body; lints for faults the unity formula cannot see (raw vs calcined clay, duplicate lines, late-arriving gas); flags limit ranges for glossy, matte, iron-crystal and copper-red targets; and reads/writes Insight-Live XML exports. Use when the user asks about a glaze recipe or its chemistry, ceramic materials (feldspar, frits, kaolin, silica, whiting, Gerstley Borate…), crazing, shivering, durability, matte vs glossy, tenmoku/kaki/shino, copper red, colorants in oxidation vs reduction, substituting one material for another, or wants a recipe drafted, scaled, blended, or converted to or from Insight-Live.
 compatibility: Requires Node.js 18+ to run the bundled chemistry engine. No network access needed — everything computes locally.
 metadata:
-  version: "1.3.0"
+  version: "1.3.1"
   source: "https://github.com/RolynTrotter/vibe-clay"
 ---
 

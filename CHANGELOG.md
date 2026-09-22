@@ -5,6 +5,25 @@ packaged skill all ship under one number (`package.json` is the source of
 truth). Format loosely follows [Keep a Changelog](https://keepachangelog.com);
 versioning is [semver](https://semver.org).
 
+## [1.3.1] — 2026-09-22
+
+Releasing is automated. Merging a version bump to `main` now cuts the tag and
+publishes the Release; there is no tag to push by hand.
+
+### Changed
+
+- `.github/workflows/release.yml` (new) watches `main` and releases when the
+  version changes: it checks the four version-carrying files agree, builds and
+  verifies the zip, creates `v<version>`, and attaches it. A merge that leaves
+  the version alone publishes nothing.
+- `.github/workflows/skill.yml` no longer publishes, and no longer runs on
+  tags — it builds, tests, and keeps the zip as an artifact on every push and
+  PR. The tag is now created *by* the release, so reacting to it would publish
+  the same zip twice.
+- The old flow automated the build but not the tag, which read as "releasing is
+  automated" right up until a version bump merged and nothing shipped. That is
+  what happened to 1.3.0, which merged without a tag.
+
 ## [1.3.0] — 2026-09-21
 
 Compact output modes, a named glaze library, and an LP solver for the limit

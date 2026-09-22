@@ -85,16 +85,16 @@ source of truth; three files carry a copy:
 packages. Semver: a chemistry result changing for the same input is a **major**
 bump — someone's recipe notes depend on those numbers.
 
-Once the bump is merged, tag `main`:
+**Merging the bump is the release.** `.github/workflows/release.yml` watches
+`main`, and when the version there is one it has not tagged before it builds
+the zip, creates `v<version>`, and publishes the Release. There is no tag to
+push by hand; a merge that leaves the version alone publishes nothing, so
+ordinary changes cost nothing.
 
-```bash
-git tag v1.2.3 && git push origin v1.2.3
-```
-
-That publishes a Release with the zip attached. The workflow rejects a tag that
-doesn't match `package.json`, so a forgotten bump fails loudly instead of
-shipping a mislabelled zip. Uploaded skills don't auto-update — a new zip means
-re-uploading it in claude.ai.
+That means a half-done bump is the failure mode to watch for, not a forgotten
+tag: the release job runs `--check` first, so if the four files disagree it
+stops before anything ships. Uploaded skills don't auto-update — a new zip
+means re-uploading it in claude.ai.
 
 ## Adding a material
 

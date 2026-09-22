@@ -168,17 +168,16 @@ One version number covers the app, the engine, and the skill.
 copy. `npm run check:version` fails if they drift, and `build:skill` runs the
 same check before packaging.
 
-To cut a release: bump those four, note the changes in `CHANGELOG.md`, merge,
-then tag `main`:
+To cut a release: bump those four, note the changes in `CHANGELOG.md`, and
+merge. That's the whole procedure — no tag to push.
 
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
+`.github/workflows/release.yml` watches `main`. When the version there is one
+it has not tagged before, it checks the four files agree, builds and verifies
+the zip, creates `v<version>`, and attaches `vibe-clay-<version>.zip` to a
+GitHub Release. A merge that doesn't change the version publishes nothing.
 
-`.github/workflows/skill.yml` builds the zip, runs the checks, refuses a tag
-that doesn't match `package.json`, and attaches `vibe-clay-<version>.zip` to a
-GitHub Release. The same workflow builds and tests on every push and PR, with
-the zip kept as a build artifact — so an untagged `main` still has a downloadable
+`.github/workflows/skill.yml` builds and tests on every push and PR and keeps
+the zip as a build artifact — so an untagged `main` still has a downloadable
 zip, it just isn't a release.
 
 ## Deploy
