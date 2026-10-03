@@ -178,8 +178,9 @@ a known-good glaze on it first", not a number.
   crossing the **1150–1100 °C smoothing window** too fast, and at chemical
   fluidity (strontium, lithium) and particle size (sieving, ball milling).
 - **Pinholes/blisters**: run `--lint`. Total LOI matters, but *timing* matters
-  more — barium and strontium carbonate gas at 1100–1300 °C, after the melt has
-  sealed.
+  more — barium carbonate gasses at 1100–1300 °C, after the melt has sealed;
+  strontium carbonate is mostly out by ~1050 °C in an electric kiln, but that
+  still overlaps a boron-rich glaze starting to close.
 
 ## What the UMF cannot see — run `--lint`
 
@@ -337,12 +338,22 @@ studio work. They are written down so the correction survives the session.
   gassing source. Over-reduction and failure-to-strike look nothing alike: a
   glaze that never struck is green or clear, one that went too far is black.
 
-- **Strontium carbonate gasses at 1100–1300 °C — after a cone 6 melt has
-  sealed.** It reads as a well-behaved low-expansion flux in the UMF and as an
-  ordinary LOI contributor in the batch total, and it is neither: the gas
-  arrives with nowhere to go but through the glaze surface. `--lint` now carries
-  an ordinal `severity` for this (see `gasTiming` in `js/chemistry.js`), so it
-  can be constrained rather than merely noticed.
+- **Strontium carbonate gasses at roughly 850–1050 °C in a glaze, not
+  1100–1300 °C.** The higher figure was asserted here once and was wrong: it
+  confuses decomposition under 1 atm of CO₂ (equilibrium ≈1175 °C, which is why
+  CO₂-atmosphere studies need ~1235 °C) with decomposition in an electric kiln,
+  where CO₂ partial pressure is near zero. Pure SrCO₃ on a TGA in air starts at
+  ~875 °C, peaks ~1010 °C and is done by ~1035 °C; inside a glaze it reacts with
+  silica and starts earlier still (a DSC study of SrCO₃-bearing glazes put the
+  onset at 860–911 °C). So in oxidation it is an **at-onset** gas, not an
+  after-seal one — worth a note on a glaze that seals early (high boron), not a
+  warning on every recipe that contains it. In a fuel-burning kiln (~10% CO₂ in
+  the atmosphere) the window shifts later, to roughly 1000 °C and up. Note too
+  that SrCO₃ is *more* thermally stable than CaCO₃, not less — the order is
+  Mg < Ca < Sr < Ba. Sources: Ceramics International kinetics of SrCO₃
+  polymorphs (TGA onset/peak/end); the SrO/SrCO₃ thermochemical-storage
+  literature (equilibrium temperature); the 2022 study of SrCO₃ in
+  SiO₂–Al₂O₃–CaO–MgO–Na₂O–K₂O glazes (DSC onset in a glaze).
 
 - **This engine's expansion figure and Insight-Live's can differ by ~0.6 on a
   high-lithium glaze** (6.65 here vs 6.0 there on one lithium-phosphate base).

@@ -75,17 +75,17 @@ test('duplicate lines are flagged with their merged total', () => {
 });
 
 test('gas arriving after the melt seals is a timing finding, not an LOI total', () => {
-  // Strontium carbonate gasses at 1100-1300 °C. Total LOI here is unremarkable;
+  // Barium carbonate gasses at 1100-1300 °C. Total LOI here is unremarkable;
   // *when* the gas arrives is the whole problem.
   const findings = lint([
     { material: 'Frit 3134 (Ferro)', amount: 40 },
     { material: 'Silica (Quartz)', amount: 34 },
-    { material: 'Strontium Carbonate', amount: 20 },
+    { material: 'Barium Carbonate', amount: 20 },
     { material: 'Kaolin (Calcined)', amount: 6 },
   ]);
   const f = byCode(findings, 'late-gas');
   assert.equal(f.level, 'warn');
-  assert.match(f.message, /Strontium Carbonate gasses at 1100-1300 °C/);
+  assert.match(f.message, /Barium Carbonate gasses at 1100-1300 °C/);
   assert.ok(!codes(findings).includes('loi-total'), 'total LOI is not what is wrong here');
 });
 
@@ -234,7 +234,7 @@ test('late-gas severity is ordinal and carried as structured data', () => {
   const findings = lint([
     { material: 'Frit 3134 (Ferro)', amount: 40 },
     { material: 'Silica (Quartz)', amount: 34 },
-    { material: 'Strontium Carbonate', amount: 20 },
+    { material: 'Barium Carbonate', amount: 20 },
     { material: 'Kaolin (Calcined)', amount: 6 },
   ]);
   const f = byCode(findings, 'late-gas');
@@ -246,7 +246,7 @@ test('late-gas severity is ordinal and carried as structured data', () => {
 });
 
 test('an at-onset finding is a note, an after-seal one is a warn', () => {
-  // Talc out before anything closes vs strontium arriving through a skin: the
+  // Talc out before anything closes vs barium arriving through a skin: the
   // old rule gave both the same level and the same sentence.
   const talc = byCode(lint([
     { material: 'Talc', amount: 12 },
@@ -254,14 +254,30 @@ test('an at-onset finding is a note, an after-seal one is a warn', () => {
     { material: 'Silica (Quartz)', amount: 33 },
     { material: 'Kaolin (Calcined)', amount: 15 },
   ]), 'late-gas');
-  const strontium = byCode(lint([
+  const barium = byCode(lint([
+    { material: 'Frit 3134 (Ferro)', amount: 40 },
+    { material: 'Silica (Quartz)', amount: 34 },
+    { material: 'Barium Carbonate', amount: 20 },
+    { material: 'Kaolin (Calcined)', amount: 6 },
+  ]), 'late-gas');
+  assert.equal(talc.level, 'note');
+  assert.equal(barium.level, 'warn');
+  assert.notEqual(talc.message, barium.message);
+  assert.match(barium.message, /AFTER the melt seals/);
+});
+
+test('strontium carbonate is an at-onset gas in oxidation, not an after-seal one', () => {
+  // Regression guard: this window was once [1100, 1300], which is decomposition
+  // under 1 atm CO2, not in an electric kiln. In a glaze it starts ~860 °C and
+  // is done by ~1050 °C. See the glaze-qa "Corrections" entry.
+  const f = byCode(lint([
     { material: 'Frit 3134 (Ferro)', amount: 40 },
     { material: 'Silica (Quartz)', amount: 34 },
     { material: 'Strontium Carbonate', amount: 20 },
     { material: 'Kaolin (Calcined)', amount: 6 },
   ]), 'late-gas');
-  assert.equal(talc.level, 'note');
-  assert.equal(strontium.level, 'warn');
-  assert.notEqual(talc.message, strontium.message);
-  assert.match(strontium.message, /AFTER the melt seals/);
+  assert.ok(f, 'still worth a note: it overlaps a boron glaze starting to close');
+  assert.equal(f.data.phase, 'at-onset');
+  assert.equal(f.level, 'note');
+  assert.deepEqual(f.data.windowC, [850, 1050]);
 });
