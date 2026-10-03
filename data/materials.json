@@ -29,7 +29,7 @@
     { "name": "Lithium Carbonate", "aliases": ["Lithium Carbonate", "Li2CO3", "Lithium Carb"], "tags": ["flux", "carbonate"], "loi": 59.6, "gasWindowC": [700, 900], "oxides": { "Li2O": 40.4 } },
     { "name": "Spodumene", "aliases": ["Spodumene"], "tags": ["flux"], "loi": 0.5, "oxides": { "Li2O": 8.0, "Al2O3": 27.4, "SiO2": 64.1 } },
     { "name": "Barium Carbonate", "aliases": ["Barium Carbonate", "BaCO3"], "tags": ["flux", "carbonate"], "loi": 22.3, "gasWindowC": [1100, 1300], "oxides": { "BaO": 77.7 } },
-    { "name": "Strontium Carbonate", "aliases": ["Strontium Carbonate", "SrCO3"], "tags": ["flux", "carbonate"], "loi": 29.8, "gasWindowC": [1100, 1300], "oxides": { "SrO": 70.2 } },
+    { "name": "Strontium Carbonate", "aliases": ["Strontium Carbonate", "SrCO3"], "tags": ["flux", "carbonate"], "loi": 29.8, "gasWindowC": [850, 1050], "oxides": { "SrO": 70.2 } },
     { "name": "Bone Ash", "aliases": ["Bone Ash"], "tags": ["flux", "phosphate"], "loi": 7.3, "gasWindowC": [600, 800], "oxides": { "CaO": 51.4, "P2O5": 41.3 } },
     { "name": "Tricalcium Phosphate", "aliases": ["Tricalcium Phosphate", "Calcium Phosphate", "TCP", "Ca3(PO4)2"], "tags": ["flux", "phosphate"], "loi": 0.0, "oxides": { "CaO": 54.2, "P2O5": 45.8 } },
     { "name": "Alberta Slip", "aliases": ["Alberta Slip", "Alberta Slip Raw", "Albany Slip"], "tags": ["clay", "slip", "flux", "plastic"], "loi": 9.7, "gasWindowC": [450, 900], "oxides": { "SiO2": 55.4, "Al2O3": 14.8, "Fe2O3": 3.9, "CaO": 5.3, "MgO": 2.9, "K2O": 3.9, "Na2O": 3.2, "TiO2": 0.6, "P2O5": 0.2, "MnO": 0.1 } },

@@ -5,6 +5,25 @@ packaged skill all ship under one number (`package.json` is the source of
 truth). Format loosely follows [Keep a Changelog](https://keepachangelog.com);
 versioning is [semver](https://semver.org).
 
+## [1.3.2] — 2026-10-03
+
+### Fixed
+
+- **Strontium carbonate's gas window was wrong: `[1100, 1300]` → `[850, 1050]` °C.**
+  The old figure is decomposition under 1 atm of CO₂ (equilibrium ≈1175 °C),
+  not in an electric kiln, where CO₂ partial pressure is near zero. Pure SrCO₃
+  on a TGA in air starts ~875 °C, peaks ~1010 °C and finishes ~1035 °C; in a
+  glaze it reacts with silica and starts earlier (DSC onset 860–911 °C). So
+  `--lint` now classes it **at-onset** (a note) instead of **after-seal** (a
+  warning). UMF, ratios, expansion and LOI are unchanged for every recipe —
+  only the lint finding's phase, level and wording move, hence a patch.
+- The `glaze-qa` "Corrections" entry that asserted the 1100–1300 °C window is
+  rewritten with the evidence, and the pinhole note no longer lumps strontium
+  in with barium. Fuel-kiln atmospheres (~10% CO₂) are called out as pushing
+  the window later.
+- The after-seal lint tests now use barium carbonate as their example, and a
+  regression test pins strontium carbonate as at-onset.
+
 ## [1.3.1] — 2026-09-22
 
 Releasing is automated. Merging a version bump to `main` now cuts the tag and
